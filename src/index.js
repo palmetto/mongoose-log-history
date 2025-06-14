@@ -66,7 +66,7 @@ const logSchema = new mongoose.Schema({
 
 const logHistorySchema = new mongoose.Schema(
   {
-    model: { type: String },
+    model: { type: String, required: true },
     model_id: { type: mongoose.Schema.Types.ObjectId, required: true },
     change_type: {
       type: String,
@@ -1018,6 +1018,9 @@ class ChangeLogPlugin {
         const updatedData = { ...originalDoc, ...updateFields };
 
         modelId = getValueByPath(updatedData, self.modelKeyId);
+        if (!modelId) {
+          modelId = getValueByPath(filter, self.modelKeyId);
+        }
 
         const user = self.extractUser({
           doc: updatedData,
