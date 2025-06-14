@@ -42,14 +42,14 @@ const orderSchema = new mongoose.Schema({
     {
       sku: String,
       qty: Number,
-      price: Number
-    }
+      price: Number,
+    },
   ],
   created_by: {
     id: mongoose.Schema.Types.ObjectId,
     name: String,
-    role: String
-  }
+    role: String,
+  },
 });
 
 // Add the plugin
@@ -63,26 +63,23 @@ orderSchema.plugin(changeLoggingPlugin, {
       arrayType: 'custom-key',
       arrayKey: 'sku',
       valueField: 'qty',
-      trackedFields: [
-        { value: 'qty' },
-        { value: 'price' }
-      ],
+      trackedFields: [{ value: 'qty' }, { value: 'price' }],
       contextFields: {
         doc: ['created_by.name'],
-        item: ['sku', 'qty']
-      }
-    }
+        item: ['sku', 'qty'],
+      },
+    },
   ],
   contextFields: ['created_by.name'],
   singleCollection: true, // or false for per-model collection
-  saveWholeDoc: false,    // set true to save full doc snapshots in logs
+  saveWholeDoc: false, // set true to save full doc snapshots in logs
   maxBatchLog: 1000,
   batchSize: 100,
   logger: console, // or your custom logger
   softDelete: {
     field: 'status',
-    value: 'deleted'
-  }
+    value: 'deleted',
+  },
 });
 
 const Order = mongoose.model('Order', orderSchema);
@@ -92,20 +89,20 @@ const Order = mongoose.model('Order', orderSchema);
 
 ## Configuration Options
 
-| Option                | Type      | Default   | Description                                                                                  |
-|-----------------------|-----------|-----------|----------------------------------------------------------------------------------------------|
-| `modelName`           | string    | model name| Model identification (optional, defaults to the model name)                                  |
-| `modelKeyId`          | string    | `_id`     | ID key that identifies the model                                                             |
-| `softDelete`          | object    |           | Soft delete config: `{ field, value }`. When the specified field is set to the given value, the plugin logs a `delete` operation instead of an update. |
-| `contextFields`       | array     |           | Extra fields to include in the log context (array of field paths from the document itself; must be an array at the plugin level)   |
-| `singleCollection`    | boolean   | `false`   | Use a single log collection for all models (`log_histories`)                                 |
-| `saveWholeDoc`        | boolean   | `false`   | Save full original/updated docs in the log                                                   |
-| `maxBatchLog`         | number    | `1000`    | Max number of logs per batch operation                                                       |
-| `batchSize`           | number    | `100`     | Number of documents to process per batch in bulk hooks                                       |
-| `logger`              | object    | `console` | Custom logger object (must support `.error` and `.warn` methods)                             |
-| `trackedFields`       | array     | `[]`      | Array of field configs to track (see below)                                                  |
-| `userField`           | string    | `created_by`    | The field in the document to extract user info from (dot notation supported). Value can be any type (object, string, ID, etc.). |
-| `compressDocs`        | boolean   | `false`     | Compress `original_doc` and `updated_doc` using gzip.                                        |
+| Option             | Type    | Default      | Description                                                                                                                                            |
+| ------------------ | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `modelName`        | string  | model name   | Model identification (optional, defaults to the model name)                                                                                            |
+| `modelKeyId`       | string  | `_id`        | ID key that identifies the model                                                                                                                       |
+| `softDelete`       | object  |              | Soft delete config: `{ field, value }`. When the specified field is set to the given value, the plugin logs a `delete` operation instead of an update. |
+| `contextFields`    | array   |              | Extra fields to include in the log context (array of field paths from the document itself; must be an array at the plugin level)                       |
+| `singleCollection` | boolean | `false`      | Use a single log collection for all models (`log_histories`)                                                                                           |
+| `saveWholeDoc`     | boolean | `false`      | Save full original/updated docs in the log                                                                                                             |
+| `maxBatchLog`      | number  | `1000`       | Max number of logs per batch operation                                                                                                                 |
+| `batchSize`        | number  | `100`        | Number of documents to process per batch in bulk hooks                                                                                                 |
+| `logger`           | object  | `console`    | Custom logger object (must support `.error` and `.warn` methods)                                                                                       |
+| `trackedFields`    | array   | `[]`         | Array of field configs to track (see below)                                                                                                            |
+| `userField`        | string  | `created_by` | The field in the document to extract user info from (dot notation supported). Value can be any type (object, string, ID, etc.).                        |
+| `compressDocs`     | boolean | `false`      | Compress `original_doc` and `updated_doc` using gzip.                                                                                                  |
 
 ---
 
@@ -118,10 +115,11 @@ The `userField` option lets you specify which field in your document should be u
 - If not set, defaults to `'created_by'`.
 
 **Examples:**
+
 ```js
-userField: 'created_by'         // Use doc.created_by (default)
-userField: 'updatedBy.name'     // Use doc.updatedBy.name
-userField: 'userId'             // Use doc.userId
+userField: 'created_by'; // Use doc.created_by (default)
+userField: 'updatedBy.name'; // Use doc.updatedBy.name
+userField: 'userId'; // Use doc.userId
 ```
 
 ---
@@ -134,12 +132,14 @@ The `softDelete` option allows you to track "soft deletes"—where a document is
 - `value`: The value that means the document is considered deleted (e.g., `"deleted"` or `true`).
 
 **Example:**
+
 ```js
 softDelete: {
   field: 'status',
   value: 'deleted'
 }
 ```
+
 When you update a document and set `status` to `'deleted'`, the plugin will log this as a `delete` operation in the history.
 
 ---
@@ -147,15 +147,18 @@ When you update a document and set `status` to `'deleted'`, the plugin will log 
 ### Compression Option
 
 **Example:**
+
 ```js
-compressDocs: true
+compressDocs: true;
 ```
+
 When `compressDocs` is enabled, the plugin will automatically compress the `original_doc` and `updated_doc` fields in your log entries using gzip.
 
 When you use the `getHistoriesById` static method, the plugin will **automatically decompress** these fields for you.  
 You always receive plain JavaScript objects, regardless of whether compression is enabled.
 
 > **Note:** If you query the log collection directly (not via `getHistoriesById`), you may need to manually decompress these fields using the provided utility:
+>
 > ```js
 > const { decompressObject } = require('mongoose-log-history');
 > const doc = decompressObject(logEntry.original_doc);
@@ -173,7 +176,7 @@ The `contextFields` option allows you to include additional fields from your doc
 - **Behavior:** The fields you define here will be extracted from the document itself and included in the log’s context.
 - **Example:**
   ```js
-  contextFields: ['created_by.name', 'organizationId']
+  contextFields: ['created_by.name', 'organizationId'];
   ```
 
 #### `contextFields` Inside `trackedFields`
@@ -189,9 +192,9 @@ This supports two forms:
   trackedFields: [
     {
       value: 'status',
-      contextFields: ['created_by.name']
-    }
-  ]
+      contextFields: ['created_by.name'],
+    },
+  ];
   ```
 
 **2. Object**
@@ -208,10 +211,10 @@ This supports two forms:
       arrayKey: 'sku',
       contextFields: {
         doc: ['created_by.name'],
-        item: ['sku', 'qty']
-      }
-    }
-  ]
+        item: ['sku', 'qty'],
+      },
+    },
+  ];
   ```
   In this example:
   - `created_by.name` will be extracted from the document and included in the log context.
@@ -225,23 +228,27 @@ The `trackedFields` option defines **which fields** in your documents should be 
 
 Each entry in the array can have the following properties:
 
-| Property         | Type     | Description                                                                                 |
-|------------------|----------|---------------------------------------------------------------------------------------------|
-| `value`          | string   | **(Required)** Field path to track (supports dot notation for nested fields)                |
-| `arrayType`      | string   | How to handle arrays: `'simple'` (array of primitives) or `'custom-key'` (array of objects) |
-| `arrayKey`       | string   | For `'custom-key'` arrays: the unique key field for each object in the array                |
-| `valueField`     | string   | For `'custom-key'` arrays: the field inside the object to track                             |
-| `contextFields`  | array/object | Additional fields to include in the log context for this field (see above)               |
-| `trackedFields`  | array    | For nested objects/arrays: additional fields inside the array/object to track               |
+| Property        | Type         | Description                                                                                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| `value`         | string       | **(Required)** Field path to track (supports dot notation for nested fields)                |
+| `arrayType`     | string       | How to handle arrays: `'simple'` (array of primitives) or `'custom-key'` (array of objects) |
+| `arrayKey`      | string       | For `'custom-key'` arrays: the unique key field for each object in the array                |
+| `valueField`    | string       | For `'custom-key'` arrays: the field inside the object to track                             |
+| `contextFields` | array/object | Additional fields to include in the log context for this field (see above)                  |
+| `trackedFields` | array        | For nested objects/arrays: additional fields inside the array/object to track               |
 
 **Examples:**
 
 - **Track a simple field:**
+
   ```js
-  { value: 'status' }
+  {
+    value: 'status';
+  }
   ```
 
 - **Track a simple array:**
+
   ```js
   { value: 'tags', arrayType: 'simple' }
   ```
@@ -281,20 +288,21 @@ This plugin automatically tracks changes for the following Mongoose operations:
 
 Each log entry in the log history collection has the following structure:
 
-| Field           | Type     | Description                                                                                 |
-|-----------------|----------|---------------------------------------------------------------------------------------------|
-| `model`         | string   | (If using single collection) The name of the model being tracked                            |
-| `model_id`      | ObjectId | The ID of the tracked document                                                              |
-| `change_type`   | string   | The type of change: `'create'`, `'update'`, or `'delete'`                                   |
-| `logs`          | array    | Array of field-level change objects (see below)                                             |
-| `created_by`    | object   | Information about the user who made the change (if available)                               |
-| `context`       | object   | Additional context fields (as configured)                                                   |
-| `original_doc`  | object   | (Optional) The original document snapshot (if `saveWholeDoc` is enabled)                    |
-| `updated_doc`   | object   | (Optional) The updated document snapshot (if `saveWholeDoc` is enabled)                     |
-| `is_deleted`    | boolean  | Whether the log entry is marked as deleted (for log management)                             |
-| `created_at`    | date     | Timestamp when the log entry was created                                                    |
+| Field          | Type     | Description                                                              |
+| -------------- | -------- | ------------------------------------------------------------------------ |
+| `model`        | string   | (If using single collection) The name of the model being tracked         |
+| `model_id`     | ObjectId | The ID of the tracked document                                           |
+| `change_type`  | string   | The type of change: `'create'`, `'update'`, or `'delete'`                |
+| `logs`         | array    | Array of field-level change objects (see below)                          |
+| `created_by`   | object   | Information about the user who made the change (if available)            |
+| `context`      | object   | Additional context fields (as configured)                                |
+| `original_doc` | object   | (Optional) The original document snapshot (if `saveWholeDoc` is enabled) |
+| `updated_doc`  | object   | (Optional) The updated document snapshot (if `saveWholeDoc` is enabled)  |
+| `is_deleted`   | boolean  | Whether the log entry is marked as deleted (for log management)          |
+| `created_at`   | date     | Timestamp when the log entry was created                                 |
 
 **Example:**
+
 ```json
 {
   "model": "Order",
@@ -323,8 +331,12 @@ Each log entry in the log history collection has the following structure:
       "created_by.name": "Alice"
     }
   },
-  "original_doc": { /* ... */ },
-  "updated_doc": { /* ... */ },
+  "original_doc": {
+    /* ... */
+  },
+  "updated_doc": {
+    /* ... */
+  },
   "is_deleted": false,
   "created_at": "2024-06-12T12:34:56.789Z"
 }
@@ -338,13 +350,13 @@ Each log entry in the log history collection has the following structure:
 
 Each object in the `logs` array has the following structure:
 
-| Field         | Type   | Description                                                                 |
-|---------------|--------|-----------------------------------------------------------------------------|
-| `field_name`  | string | The path of the field that changed (e.g., `"status"`, `"items.0.qty"`)      |
-| `from_value`  | string | The value before the change (as a string)                                   |
-| `to_value`    | string | The value after the change (as a string)                                    |
-| `change_type` | string | The type of change: `'add'`, `'edit'`, or `'remove'`                        |
-| `context`     | object | (Optional) Additional context fields, as configured in `contextFields`      |
+| Field         | Type   | Description                                                            |
+| ------------- | ------ | ---------------------------------------------------------------------- |
+| `field_name`  | string | The path of the field that changed (e.g., `"status"`, `"items.0.qty"`) |
+| `from_value`  | string | The value before the change (as a string)                              |
+| `to_value`    | string | The value after the change (as a string)                               |
+| `change_type` | string | The type of change: `'add'`, `'edit'`, or `'remove'`                   |
+| `context`     | object | (Optional) Additional context fields, as configured in `contextFields` |
 
 ---
 
@@ -361,6 +373,7 @@ Apply the plugin to your schema.
 Get log histories for a specific document.
 
 **Example:**
+
 ```js
 const logs = await Order.getHistoriesById(orderId);
 ```
@@ -372,12 +385,15 @@ const logs = await Order.getHistoriesById(orderId);
 Decompresses a gzip-compressed Buffer (as stored in `original_doc` or `updated_doc` when `compressDocs` is enabled) and returns the original JavaScript object.
 
 **Parameters:**
+
 - `buffer` (`Buffer`): The compressed data.
 
 **Returns:**
+
 - The decompressed JavaScript object, or `null` if input is falsy.
 
 **Example:**
+
 ```js
 const { decompressObject } = require('mongoose-log-history');
 const doc = decompressObject(logEntry.original_doc);
@@ -396,6 +412,7 @@ If you need to log changes manually (for example, in custom flows or scripts whe
 Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration.
 
 **Example:**
+
 ```js
 const { getTrackedChanges } = require('mongoose-log-history');
 
@@ -409,6 +426,7 @@ const changes = getTrackedChanges(originalDoc, updatedDoc, trackedFields);
 Builds a log entry object compatible with the plugin’s log schema.
 
 **Example:**
+
 ```js
 const { buildLogEntry } = require('mongoose-log-history');
 
@@ -421,11 +439,12 @@ const logEntry = buildLogEntry(
   originalDoc,
   updatedDoc,
   context,
-  true,   // singleCollection
-  false,  // saveWholeDoc
-  false   // compressDocs
+  true, // singleCollection
+  false, // saveWholeDoc
+  false // compressDocs
 );
 ```
+
 - `modelId`: The document's ID.
 - `modelName`: The model name.
 - `changeType`: The type of change ('create', 'update', 'delete').
@@ -445,6 +464,7 @@ const logEntry = buildLogEntry(
 Returns the Mongoose model instance for the log history collection (either single or per-model).
 
 **Example:**
+
 ```js
 const { getLogHistoryModel } = require('mongoose-log-history');
 
@@ -466,40 +486,44 @@ await LogHistory.create(logEntry);
 You can prune old or excess log entries using the `pruneLogHistory` helper:
 
 **Delete logs older than 2 hours:**
+
 ```js
 await pruneLogHistory({
   modelName: 'Order',
   singleCollection: true,
-  before: '2h' // supports '2h', '1d', '1M', '1y', etc.
+  before: '2h', // supports '2h', '1d', '1M', '1y', etc.
 });
 ```
 
 **Delete logs older than 1 month for a specific document:**
+
 ```js
 await pruneLogHistory({
   modelName: 'Order',
   singleCollection: true,
   before: '1M',
-  modelId: '60f7c2b8e1b1c8a1b8e1b1c8'
+  modelId: '60f7c2b8e1b1c8a1b8e1b1c8',
 });
 ```
 
 **Keep only the last 100 logs per document:**
+
 ```js
 await pruneLogHistory({
   modelName: 'Order',
   singleCollection: true,
-  keepLast: 100
+  keepLast: 100,
 });
 ```
 
 **Keep only the last 50 logs for a specific document:**
+
 ```js
 await pruneLogHistory({
   modelName: 'Order',
   singleCollection: true,
   keepLast: 50,
-  modelId: '60f7c2b8e1b1c8a1b8e1b1c8'
+  modelId: '60f7c2b8e1b1c8a1b8e1b1c8',
 });
 ```
 
@@ -515,6 +539,7 @@ This plugin is compatible with [Mongoose discriminators](https://mongoosejs.com/
 - When using a single log collection, the `model` field in each log entry will reflect the discriminator’s model name.
 
 **Example:**
+
 ```js
 const baseSchema = new mongoose.Schema({ ... });
 baseSchema.plugin(changeLoggingPlugin, { ... });
@@ -543,23 +568,20 @@ orderSchema.plugin(changeLoggingPlugin, {
       arrayType: 'custom-key',
       arrayKey: 'sku',
       valueField: 'qty',
-      trackedFields: [
-        { value: 'qty' },
-        { value: 'price' }
-      ],
+      trackedFields: [{ value: 'qty' }, { value: 'price' }],
       contextFields: {
         doc: ['created_by.name'],
-        item: ['sku', 'qty']
-      }
-    }
+        item: ['sku', 'qty'],
+      },
+    },
   ],
   contextFields: ['created_by.name'],
   singleCollection: true,
   saveWholeDoc: true,
   softDelete: {
     field: 'status',
-    value: 'deleted'
-  }
+    value: 'deleted',
+  },
 });
 ```
 

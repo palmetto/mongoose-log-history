@@ -68,7 +68,12 @@ const logHistorySchema = new mongoose.Schema(
   {
     model: { type: String }, // for single collection support
     model_id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    change_type: { type: String, enum: ['create', 'delete', 'update'], default: 'update', required: true },
+    change_type: {
+      type: String,
+      enum: ['create', 'delete', 'update'],
+      default: 'update',
+      required: true,
+    },
     logs: { type: [logSchema], default: [] },
     created_by: {
       id: mongoose.Schema.Types.ObjectId,
@@ -586,14 +591,14 @@ function buildLogEntry(
             compressDocs && original_doc
               ? compressObject(original_doc)
               : original_doc
-              ? JSON.parse(JSON.stringify(original_doc))
-              : null,
+                ? JSON.parse(JSON.stringify(original_doc))
+                : null,
           updated_doc:
             compressDocs && updated_doc
               ? compressObject(updated_doc)
               : updated_doc
-              ? JSON.parse(JSON.stringify(updated_doc))
-              : null,
+                ? JSON.parse(JSON.stringify(updated_doc))
+                : null,
         }
       : {}),
     is_deleted: false,
@@ -644,7 +649,9 @@ async function pruneLogHistory({ modelName, singleCollection = false, before, ke
         .skip(keepLast)
         .select('_id');
       if (docs.length) {
-        const res = await LogHistory.deleteMany({ _id: { $in: docs.map((d) => d._id) } });
+        const res = await LogHistory.deleteMany({
+          _id: { $in: docs.map((d) => d._id) },
+        });
         totalDeleted += res.deletedCount || 0;
       }
     }
@@ -1023,7 +1030,11 @@ class ChangeLogPlugin {
 
         modelId = getValueByPath(updatedData, self.modelKeyId);
 
-        const user = self.extractUser({ doc: updatedData, context, userField: self.userField });
+        const user = self.extractUser({
+          doc: updatedData,
+          context,
+          userField: self.userField,
+        });
 
         if (!originalDoc && options.upsert) {
           await self.saveLogHistory({
@@ -1125,7 +1136,10 @@ class ChangeLogPlugin {
             const logEntryParams = [];
             for (const doc of batch) {
               const modelId = getValueByPath(doc, self.modelKeyId);
-              const userData = self.extractUser({ doc, userField: self.userField });
+              const userData = self.extractUser({
+                doc,
+                userField: self.userField,
+              });
               logEntryParams.push({
                 modelId,
                 changeType: 'create',
@@ -1168,7 +1182,11 @@ class ChangeLogPlugin {
             const logEntryParamsArray = [];
             for (const doc of batch) {
               const modelId = getValueByPath(doc, self.modelKeyId);
-              const userData = self.extractUser({ doc, context, userField: self.userField });
+              const userData = self.extractUser({
+                doc,
+                context,
+                userField: self.userField,
+              });
               logEntryParamsArray.push({
                 modelId,
                 originalData: doc,
@@ -1217,7 +1235,11 @@ class ChangeLogPlugin {
               const updatedData = { ...originalDoc, ...updateFields };
               const modelId = getValueByPath(updatedData, self.modelKeyId);
 
-              const userData = self.extractUser({ doc: updatedData, context, userField: self.userField });
+              const userData = self.extractUser({
+                doc: updatedData,
+                context,
+                userField: self.userField,
+              });
 
               logEntryParams.push({
                 modelId,

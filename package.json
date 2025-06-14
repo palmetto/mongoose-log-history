@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -39,6 +40,11 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.4.1",
     "globals": "^16.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.1",
     "prettier": "^3.5.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs}": "eslint"
   }
 }
