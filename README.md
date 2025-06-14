@@ -290,7 +290,7 @@ Each log entry in the log history collection has the following structure:
 
 | Field          | Type     | Description                                                              |
 | -------------- | -------- | ------------------------------------------------------------------------ |
-| `model`        | string   | (If using single collection) The name of the model being tracked         |
+| `model`        | string   | The name of the model being tracked         |
 | `model_id`     | ObjectId | The ID of the tracked document                                           |
 | `change_type`  | string   | The type of change: `'create'`, `'update'`, or `'delete'`                |
 | `logs`         | array    | Array of field-level change objects (see below)                          |
@@ -421,7 +421,7 @@ const changes = getTrackedChanges(originalDoc, updatedDoc, trackedFields);
 
 ---
 
-#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, singleCollection, saveWholeDoc, compressDocs)`
+#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs)`
 
 Builds a log entry object compatible with the plugin’s log schema.
 
@@ -439,7 +439,6 @@ const logEntry = buildLogEntry(
   originalDoc,
   updatedDoc,
   context,
-  true, // singleCollection
   false, // saveWholeDoc
   false // compressDocs
 );
@@ -453,7 +452,6 @@ const logEntry = buildLogEntry(
 - `originalDoc`: The original document.
 - `updatedDoc`: The updated document.
 - `context`: Additional context fields.
-- `singleCollection`: Use single collection or per-model.
 - `saveWholeDoc`: Save full doc snapshots.
 - `compressDocs`: Compress doc snapshots.
 

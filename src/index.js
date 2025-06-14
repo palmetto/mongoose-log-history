@@ -574,12 +574,11 @@ function buildLogEntry(
   original_doc = null,
   updated_doc = null,
   context = null,
-  singleCollection = false,
   saveWholeDoc = false,
   compressDocs = false
 ) {
   return {
-    ...(singleCollection ? { model: model_name } : {}),
+    model: model_name,
     model_id,
     change_type,
     logs,
@@ -899,7 +898,6 @@ class ChangeLogPlugin {
           originalData,
           updatedData,
           context,
-          this.singleCollection,
           this.saveWholeDoc,
           this.compressDocs
         )
@@ -937,7 +935,6 @@ class ChangeLogPlugin {
               params.originalData,
               params.updatedData,
               context,
-              this.singleCollection,
               this.saveWholeDoc,
               this.compressDocs
             ),
