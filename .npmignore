@@ -1,0 +1,48 @@
+# Tests and coverage
+test/
+tests/
+__tests__/
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+
+# Build scripts and configs
+*.config.js
+*.config.cjs
+*.config.mjs
+*.config.json
+jest.*
+babel.*
+.eslintrc*
+.prettierrc*
+.editorconfig
+.vscode/
+.idea/
+
+# Docs and meta
+CHANGELOG.md
+CONTRIBUTING.md
+examples/
+example/
+docs/
+doc/
+*.md
+
+# OS and misc
+.DS_Store
+Thumbs.db
+.env
+*.log
+*.tgz
+*.swp
+*.swo
+
+# Ignore git files
+.gitignore
+.gitattributes
+
+# Ignore build output
+dist/
+build/
+lib/

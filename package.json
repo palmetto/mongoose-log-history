@@ -1,0 +1,44 @@
+{
+  "name": "mongoose-log-history",
+  "version": "1.0.0",
+  "description": "A Mongoose plugin to automatically track and log changes (create, update, delete) to your models, with detailed audit history and flexible configuration.",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/granitebps/mongoose-log-history.git"
+  },
+  "keywords": [
+    "mongoose",
+    "plugin",
+    "audit",
+    "logger",
+    "history",
+    "change",
+    "tracking",
+    "mongodb"
+  ],
+  "author": "Granite Bagas <granitebagas28@gmail.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "mongoose": ">=6.0.0 <9.0.0"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "bugs": {
+    "url": "https://github.com/granitebps/mongoose-log-history/issues"
+  },
+  "homepage": "https://github.com/granitebps/mongoose-log-history#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.1",
+    "globals": "^16.2.0",
+    "prettier": "^3.5.3"
+  }
+}
