@@ -54,7 +54,7 @@ const orderSchema = new mongoose.Schema({
 
 // Add the plugin
 orderSchema.plugin(changeLoggingPlugin, {
-  // modelName is optional; defaults to the model's name
+  modelName: 'order',
   trackedFields: [
     { value: 'status' },
     { value: 'tags', arrayType: 'simple' },
@@ -91,7 +91,7 @@ const Order = mongoose.model('Order', orderSchema);
 
 | Option             | Type    | Default      | Description                                                                                                                                            |
 | ------------------ | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modelName`        | string  | model name   | Model identification (optional, defaults to the model name)                                                                                            |
+| `modelName`        | string  | model name   | Model identification (REQUIRED)                                                                                            |
 | `modelKeyId`       | string  | `_id`        | ID key that identifies the model                                                                                                                       |
 | `softDelete`       | object  |              | Soft delete config: `{ field, value }`. When the specified field is set to the given value, the plugin logs a `delete` operation instead of an update. |
 | `contextFields`    | array   |              | Extra fields to include in the log context (array of field paths from the document itself; must be an array at the plugin level)                       |
@@ -558,6 +558,7 @@ Suppose you want to track changes to an order’s status, tags, and items (with 
 
 ```js
 orderSchema.plugin(changeLoggingPlugin, {
+  modelName: 'order',
   trackedFields: [
     { value: 'status' },
     { value: 'tags', arrayType: 'simple' },

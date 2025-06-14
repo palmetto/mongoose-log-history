@@ -66,7 +66,7 @@ const logSchema = new mongoose.Schema({
 
 const logHistorySchema = new mongoose.Schema(
   {
-    model: { type: String }, // for single collection support
+    model: { type: String },
     model_id: { type: mongoose.Schema.Types.ObjectId, required: true },
     change_type: {
       type: String,
@@ -682,12 +682,6 @@ class ChangeLogPlugin {
     logHistorySchema.index(index);
   }
 
-  ensureModelName(model) {
-    if (!this.modelName) {
-      this.modelName = model.modelName || model.constructor.modelName;
-    }
-  }
-
   getLogHistoryModelPlugin() {
     return getLogHistoryModel(this.modelName, this.singleCollection);
   }
@@ -999,8 +993,6 @@ class ChangeLogPlugin {
     return async function preUpdateHook(next) {
       let modelId;
       try {
-        self.ensureModelName(this.model || this.constructor);
-
         const query = this;
         const model = query.model;
         const filter = query.getFilter();
@@ -1079,8 +1071,6 @@ class ChangeLogPlugin {
     return async function preSaveHook(next) {
       let modelId;
       try {
-        self.ensureModelName(this.model || this.constructor);
-
         const doc = this;
         const isNew = doc.isNew;
         const user = self.extractUser({ doc, userField: self.userField });
@@ -1125,13 +1115,14 @@ class ChangeLogPlugin {
     const self = this;
     return async function preInsertManyHook(next, docs) {
       try {
-        self.ensureModelName(this.model || this.constructor);
-
         await self.batchLogHistory(
           docs,
           async (batch, user) => {
             const logEntryParams = [];
             for (const doc of batch) {
+              if (!doc._id) {
+                doc._id = new mongoose.Types.ObjectId();
+              }
               const modelId = getValueByPath(doc, self.modelKeyId);
               const userData = self.extractUser({
                 doc,
@@ -1163,8 +1154,6 @@ class ChangeLogPlugin {
     const self = this;
     return async function preDeleteHook(next) {
       try {
-        self.ensureModelName(this.model || this.constructor);
-
         const query = this;
         const model = query.model;
         const filter = query.getFilter();
@@ -1211,8 +1200,6 @@ class ChangeLogPlugin {
     const self = this;
     return async function preUpdateManyHook(next) {
       try {
-        self.ensureModelName(this.model || this.constructor);
-
         const query = this;
         const model = query.model;
         const filter = query.getFilter();
@@ -1312,6 +1299,9 @@ function validateTrackedField(field, path = 'trackedFields') {
 }
 
 function validateOptions(options) {
+  if (!options.modelName || typeof options.modelName !== 'string') {
+    throw new Error('[mongoose-log-history] "modelName" option is required and must be a string.');
+  }
   if (!options.trackedFields || !Array.isArray(options.trackedFields)) {
     throw new Error('[mongoose-log-history] "trackedFields" option must be an array.');
   }
