@@ -10,6 +10,19 @@ const {
   diffSimpleArray,
 } = require('./utils');
 
+/**
+ * Extracts context fields from the document and/or array item for logging.
+ * @param {Array|Object} contextFields - Context fields config.
+ *   - If an array, fields are extracted from the document itself.
+ *   - If an object, it can have:
+ *     - `doc`: array of field paths from the document itself
+ *     - `item`: array of field paths from the array item (for arrays of objects)
+ * @param {Object} originalDoc - The original document.
+ * @param {Object} updatedDoc - The updated document.
+ * @param {Object} [beforeItem] - The array item before change (optional).
+ * @param {Object} [afterItem] - The array item after change (optional).
+ * @returns {Object|undefined} The extracted context object, or undefined if none.
+ */
 function extractLogContext(contextFields, originalDoc, updatedDoc, beforeItem = null, afterItem = null) {
   let context = undefined;
   if (contextFields) {
@@ -41,6 +54,15 @@ function extractLogContext(contextFields, originalDoc, updatedDoc, beforeItem = 
   return context;
 }
 
+/**
+ * Process changes for a simple (non-array) field.
+ * @param {Object} field - The tracked field config.
+ * @param {*} beforeValue - The value before the change.
+ * @param {*} afterValue - The value after the change.
+ * @param {Object} originalDoc - The original document.
+ * @param {Object} updatedDoc - The updated document.
+ * @returns {Array} Array of change log objects for this field.
+ */
 function processGenericFieldChanges(field, beforeValue, afterValue, originalDoc, updatedDoc) {
   const log = [];
   const path = field.value;
@@ -87,6 +109,16 @@ function processGenericFieldChanges(field, beforeValue, afterValue, originalDoc,
   return log;
 }
 
+/**
+ * Process changes for a simple array field (array of primitives).
+ * @param {Object} field - The tracked field config.
+ * @param {Array} beforeValue - The array before the change.
+ * @param {Array} afterValue - The array after the change.
+ * @param {Object} originalDoc - The original document.
+ * @param {Object} updatedDoc - The updated document.
+ * @param {string} [parentFieldName] - The parent field name for nested arrays (optional).
+ * @returns {Array} Array of change log objects for this field.
+ */
 function processSimpleArrayChanges(field, beforeValue, afterValue, originalDoc, updatedDoc, parentFieldName = null) {
   const log = [];
   const { added, removed } = diffSimpleArray(beforeValue, afterValue);
@@ -116,6 +148,16 @@ function processSimpleArrayChanges(field, beforeValue, afterValue, originalDoc, 
   return log;
 }
 
+/**
+ * Process changes for a custom-key array field (array of objects with a key).
+ * @param {Object} field - The tracked field config.
+ * @param {Array} beforeValue - The array before the change.
+ * @param {Array} afterValue - The array after the change.
+ * @param {Object} originalDoc - The original document.
+ * @param {Object} updatedDoc - The updated document.
+ * @param {string} [parentFieldName] - The parent field name for nested arrays (optional).
+ * @returns {Array} Array of change log objects for this field.
+ */
 function processCustomKeyArrayChanges(field, beforeValue, afterValue, originalDoc, updatedDoc, parentFieldName = null) {
   const log = [];
   const beforeMap = arrayToKeyMap(beforeValue, field.arrayKey);
@@ -165,6 +207,16 @@ function processCustomKeyArrayChanges(field, beforeValue, afterValue, originalDo
   return log;
 }
 
+/**
+ * Process changes for nested tracked fields inside an array of objects.
+ * @param {Object} field - The tracked field config.
+ * @param {Object} beforeItem - The array item before the change.
+ * @param {Object} afterItem - The array item after the change.
+ * @param {Object} originalDoc - The original document.
+ * @param {Object} updatedDoc - The updated document.
+ * @param {string} [parentFieldName] - The parent field name for nested arrays (optional).
+ * @returns {Array} Array of change log objects for nested fields.
+ */
 function processSubFieldChanges(field, beforeItem, afterItem, originalDoc, updatedDoc, parentFieldName = null) {
   const log = [];
   for (const subField of field.trackedFields) {
@@ -224,6 +276,13 @@ function processSubFieldChanges(field, beforeItem, afterItem, originalDoc, updat
   return log;
 }
 
+/**
+ * Get the list of tracked changes between two documents.
+ * @param {Object} original - The original document.
+ * @param {Object} updated - The updated document.
+ * @param {Array} trackedFields - Array of tracked field configs.
+ * @returns {Array} Array of change log objects.
+ */
 function getTrackedChanges(original, updated, trackedFields) {
   const log = [];
   for (const field of trackedFields) {

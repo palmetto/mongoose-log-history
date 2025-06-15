@@ -28,6 +28,11 @@ function compressObject(obj) {
   return zlib.gzipSync(json);
 }
 
+/**
+ * Parse a human time string (e.g., '2h', '1d', '1M', '1y') to a Date.
+ * @param {string|Date|number} str
+ * @returns {Date|null}
+ */
 function parseHumanTime(str) {
   if (str instanceof Date) return str;
   if (typeof str === 'number') return new Date(str);

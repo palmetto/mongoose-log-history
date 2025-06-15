@@ -39,6 +39,12 @@ const logHistorySchema = new mongoose.Schema(
   }
 );
 
+/**
+ * Get the log history Mongoose model for a given model name.
+ * @param {string} modelName - The model name.
+ * @param {boolean} [singleCollection=false] - Use single collection or per-model.
+ * @returns {mongoose.Model} The log history model.
+ */
 function getLogHistoryModel(modelName, singleCollection = false) {
   const collectionName = singleCollection ? 'log_histories' : `log_histories_${modelName}`;
   const modelKey = singleCollection ? 'LogHistory' : `LogHistory_${modelName}`;

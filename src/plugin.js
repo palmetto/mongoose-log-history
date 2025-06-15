@@ -7,6 +7,20 @@ const { getTrackedChanges, extractLogContext } = require('./change-tracking');
 const { compressObject, decompressObject } = require('./compression');
 const { getValueByPath } = require('./utils');
 
+/**
+ * Build a log entry object compatible with the plugin's log schema.
+ * @param {string|ObjectId} model_id - The document's ID.
+ * @param {string} model_name - The model name.
+ * @param {string} change_type - The type of change ('create', 'update', 'delete').
+ * @param {Array} logs - Array of field-level change objects.
+ * @param {*} created_by - User info (object, string, or any type).
+ * @param {Object} [original_doc] - The original document.
+ * @param {Object} [updated_doc] - The updated document.
+ * @param {Object} [context] - Additional context fields.
+ * @param {boolean} [saveWholeDoc=false] - Save full doc snapshots.
+ * @param {boolean} [compressDocs=false] - Compress doc snapshots.
+ * @returns {Object} Log entry object.
+ */
 function buildLogEntry(
   model_id,
   model_name,
@@ -67,10 +81,22 @@ class ChangeLogPlugin {
     logHistorySchema.index(index);
   }
 
+  /**
+   * Get the log history model for the current plugin instance.
+   * @returns {mongoose.Model} The log history model.
+   */
   getLogHistoryModelPlugin() {
     return getLogHistoryModel(this.modelName, this.singleCollection);
   }
 
+  /**
+   * Extract user info from context or document, with fallbacks.
+   * @param {Object} params
+   * @param {Object} params.doc - The document (plain object)
+   * @param {Object} params.context - The context object (from query options)
+   * @param {string} params.userField - The user field path (dot notation)
+   * @returns {*} The extracted user info.
+   */
   extractUser({ doc, context, userField }) {
     if (context && userField) {
       const userFromContext = getValueByPath(context, userField);
@@ -92,6 +118,13 @@ class ChangeLogPlugin {
     return null;
   }
 
+  /**
+   * Simulate $addToSet update operator for arrays.
+   * @param {Array} originalArr - The original array.
+   * @param {Array|*} addArr - The value(s) to add.
+   * @param {string} [arrayKey] - The key for custom-key arrays.
+   * @returns {Array} The updated array.
+   */
   simulateAddToSet(originalArr, addArr, arrayKey) {
     if (!Array.isArray(originalArr)) {
       originalArr = [];
@@ -119,6 +152,12 @@ class ChangeLogPlugin {
     return result;
   }
 
+  /**
+   * Simulate $pull update operator for arrays.
+   * @param {Array} originalArr - The original array.
+   * @param {*} pullQuery - The value or query to pull.
+   * @returns {Array} The updated array.
+   */
   simulatePull(originalArr, pullQuery) {
     if (!Array.isArray(originalArr)) {
       return [];
@@ -140,6 +179,12 @@ class ChangeLogPlugin {
     });
   }
 
+  /**
+   * Simulate $pullAll update operator for arrays.
+   * @param {Array} originalArr - The original array.
+   * @param {Array|*} pullAllArr - The values to pull.
+   * @returns {Array} The updated array.
+   */
   simulatePullAll(originalArr, pullAllArr) {
     if (!Array.isArray(originalArr)) {
       return [];
@@ -150,6 +195,12 @@ class ChangeLogPlugin {
     return originalArr.filter((item) => !pullAllArr.some((val) => isEqual(item, val)));
   }
 
+  /**
+   * Extract the updated fields from a MongoDB update object and the original document.
+   * @param {Object} update - The MongoDB update object.
+   * @param {Object} originalDoc - The original document.
+   * @returns {Object} The simulated updated fields.
+   */
   extractUpdateFields(update, originalDoc) {
     const fields = {};
 
@@ -243,6 +294,16 @@ class ChangeLogPlugin {
     return fields;
   }
 
+  /**
+   * Save a single log history entry.
+   * @param {Object} params
+   * @param {string|ObjectId} params.modelId - The document's ID.
+   * @param {Object} [params.originalData] - The original document.
+   * @param {Object} [params.updatedData] - The updated document.
+   * @param {string} [params.changeType='update'] - The type of change.
+   * @param {*} [params.user=null] - User info.
+   * @returns {Promise<void>}
+   */
   async saveLogHistory({ modelId, originalData, updatedData, changeType = 'update', user = null }) {
     let changes = [];
     let context = undefined;
@@ -280,6 +341,11 @@ class ChangeLogPlugin {
     }
   }
 
+  /**
+   * Save multiple log history entries in a batch.
+   * @param {Array} logEntriesData - Array of log entry parameter objects.
+   * @returns {Promise<void>}
+   */
   async saveLogHistoryBatch(logEntriesData) {
     const logEntries = logEntriesData
       .map((params) => {
@@ -328,6 +394,14 @@ class ChangeLogPlugin {
     }
   }
 
+  /**
+   * Process documents in batches for bulk operations, respecting maxBatchLog and batchSize.
+   * @param {Array} docs - The documents to process.
+   * @param {Function} processFn - The function to process each batch.
+   * @param {string} [operationName='batch'] - The operation name for logging.
+   * @param {*} [user=null] - User info.
+   * @returns {Promise<void>}
+   */
   async batchLogHistory(docs, processFn, operationName = 'batch', user = null) {
     const maxBatchLog = this.maxBatchLog || 1000;
     let processed = 0;
@@ -747,6 +821,11 @@ function validateOptions(options) {
   }
 }
 
+/**
+ * Mongoose plugin to track and log changes to specified fields in documents.
+ * @param {mongoose.Schema} schema - The Mongoose schema to apply the plugin to.
+ * @param {Object} options - Plugin configuration options.
+ */
 function changeLoggingPlugin(schema, options = {}) {
   validateOptions(options);
 
