@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-06-15
+
 ### Added
 
 - Initial release of `mongoose-log-history` plugin.
@@ -16,10 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pruning utility and compression support.
 - Discriminator support.
 - Exposed internal helpers for manual logging.
-
-## [1.0.0] - 2025-06-14
-
-### Added
 
 - First stable release.
 
