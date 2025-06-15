@@ -1,5 +1,11 @@
 # mongoose-log-history
 
+[![CI](https://github.com/granitebps/mongoose-log-history/actions/workflows/ci.yml/badge.svg)](https://github.com/granitebps/mongoose-log-history/actions)
+[![npm version](https://img.shields.io/npm/v/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat)](https://prettier.io/)
+
 A Mongoose plugin to **automatically track and log changes** (create, update, delete, and soft delete) to your models, with detailed audit history and flexible configuration.
 
 ---
