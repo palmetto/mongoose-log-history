@@ -3,6 +3,13 @@
 Thank you for considering contributing to this project!  
 We welcome bug reports, feature requests, and pull requests.
 
+## Requirements
+
+- Node.js **18** or higher
+- Mongoose **8** or higher
+
+Please ensure you are using a supported version of Node.js and Mongoose before contributing or running tests.
+
 ## How to Contribute
 
 ### 1. Reporting Bugs or Requesting Features

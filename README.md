@@ -6,6 +6,11 @@
 [![npm downloads](https://img.shields.io/npm/dm/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat)](https://prettier.io/)
 
+> **Requirements**
+>
+> - Node.js **18** or higher
+> - Mongoose **8** or higher
+
 A Mongoose plugin to **automatically track and log changes** (create, update, delete, and soft delete) to your models, with detailed audit history and flexible configuration.
 
 ---
