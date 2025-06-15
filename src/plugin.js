@@ -377,8 +377,10 @@ class ChangeLogPlugin {
         let isSoftDelete = false;
         const softDeleteConfig = self.softDelete || null;
         if (softDeleteConfig && updateFields) {
-          const softDeleteFieldValue = getValueByPath(updateFields, softDeleteConfig.field);
-          if (softDeleteFieldValue === softDeleteConfig.value) {
+          const wasDeleted = getValueByPath(originalDoc, softDeleteConfig.field) === softDeleteConfig.value;
+          const isDeleted =
+            getValueByPath({ ...originalDoc, ...updateFields }, softDeleteConfig.field) === softDeleteConfig.value;
+          if (!wasDeleted && isDeleted) {
             isSoftDelete = true;
           }
         }
@@ -406,17 +408,7 @@ class ChangeLogPlugin {
           return next();
         }
 
-        if (originalDoc) {
-          await self.saveLogHistory({
-            modelId,
-            originalData: originalDoc,
-            updatedData,
-            changeType: 'update',
-            user,
-          });
-        }
-
-        if (isSoftDelete) {
+        if (isSoftDelete && originalDoc) {
           await self.saveLogHistory({
             modelId,
             originalData: originalDoc,
@@ -425,6 +417,16 @@ class ChangeLogPlugin {
             user,
           });
           return next();
+        }
+
+        if (originalDoc) {
+          await self.saveLogHistory({
+            modelId,
+            originalData: originalDoc,
+            updatedData,
+            changeType: 'update',
+            user,
+          });
         }
       } catch (err) {
         self.logger.error(
@@ -463,13 +465,32 @@ class ChangeLogPlugin {
             return next();
           }
 
-          await self.saveLogHistory({
-            modelId,
-            originalData: originalDoc,
-            updatedData: doc.toObject(),
-            changeType: 'update',
-            user,
-          });
+          let isSoftDelete = false;
+          if (self.softDelete) {
+            const wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
+            const isDeleted = getValueByPath(doc, self.softDelete.field) === self.softDelete.value;
+            if (!wasDeleted && isDeleted) {
+              isSoftDelete = true;
+            }
+          }
+
+          if (isSoftDelete) {
+            await self.saveLogHistory({
+              modelId,
+              originalData: originalDoc,
+              updatedData: doc.toObject(),
+              changeType: 'delete',
+              user,
+            });
+          } else {
+            await self.saveLogHistory({
+              modelId,
+              originalData: originalDoc,
+              updatedData: doc.toObject(),
+              changeType: 'update',
+              user,
+            });
+          }
         }
       } catch (err) {
         self.logger.error(
@@ -596,13 +617,32 @@ class ChangeLogPlugin {
                 userField: self.userField,
               });
 
-              logEntryParams.push({
-                modelId,
-                changeType: 'update',
-                originalData: originalDoc,
-                updatedData,
-                user: userData,
-              });
+              let isSoftDelete = false;
+              if (self.softDelete) {
+                const wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
+                const isDeleted = getValueByPath(updatedData, self.softDelete.field) === self.softDelete.value;
+                if (!wasDeleted && isDeleted) {
+                  isSoftDelete = true;
+                }
+              }
+
+              if (isSoftDelete) {
+                logEntryParams.push({
+                  modelId,
+                  originalData: originalDoc,
+                  updatedData,
+                  changeType: 'delete',
+                  user: userData,
+                });
+              } else {
+                logEntryParams.push({
+                  modelId,
+                  changeType: 'update',
+                  originalData: originalDoc,
+                  updatedData,
+                  user: userData,
+                });
+              }
             }
             await self.saveLogHistoryBatch(logEntryParams);
           },

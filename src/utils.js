@@ -5,7 +5,7 @@ function isDate(val) {
 }
 
 function isObject(val) {
-  return val && typeof val === 'object' && !Array.isArray(val) && !isDate(val);
+  return val !== null && typeof val === 'object' && !Array.isArray(val) && !isDate(val);
 }
 
 function isIsoDateString(val) {
