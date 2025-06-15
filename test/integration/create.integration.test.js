@@ -81,7 +81,7 @@ describe('mongoose-log-history plugin - Create Operation (all hooks and edge cas
 
   it('logs create with explicit _id', async () => {
     const customId = new mongoose.Types.ObjectId();
-    const [order] = await Order.insertMany([{ _id: customId, status: 'pending' }]);
+    await Order.insertMany([{ _id: customId, status: 'pending' }]);
     await wait();
 
     const logs = await LogHistory.find({ model_id: customId }).lean();

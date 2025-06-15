@@ -121,7 +121,7 @@ describe('mongoose-log-history plugin - Soft Delete', () => {
   });
 
   it('logs delete for multiple docs in updateMany (batch limit)', async () => {
-    const orders = await Order.insertMany([
+    await Order.insertMany([
       { status: 'active' },
       { status: 'active' },
       { status: 'active' },

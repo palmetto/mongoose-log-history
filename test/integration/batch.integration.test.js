@@ -85,7 +85,7 @@ describe('mongoose-log-history plugin - Batch Operations', () => {
   });
 
   it('respects maxBatchLog limit in updateMany', async () => {
-    const orders = await Order.insertMany([
+    await Order.insertMany([
       { status: 'a' },
       { status: 'a' },
       { status: 'a' },
@@ -102,7 +102,7 @@ describe('mongoose-log-history plugin - Batch Operations', () => {
   });
 
   it('respects batchSize in batch processing', async () => {
-    const orders = await Order.insertMany([{ status: 'a' }, { status: 'a' }, { status: 'a' }, { status: 'a' }]);
+    await Order.insertMany([{ status: 'a' }, { status: 'a' }, { status: 'a' }, { status: 'a' }]);
     await LogHistory.deleteMany({});
     await Order.updateMany({}, { $set: { status: 'z' } });
     await wait();

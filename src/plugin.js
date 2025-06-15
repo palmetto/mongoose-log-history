@@ -310,7 +310,7 @@ class ChangeLogPlugin {
     if (changeType === 'update') {
       changes = getTrackedChanges(originalData, updatedData, this.trackedFields);
 
-      if (changes.length == 0) {
+      if (changes.length === 0) {
         return;
       }
     } else {

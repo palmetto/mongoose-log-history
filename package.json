@@ -29,7 +29,7 @@
     "mongoose": ">=6.0.0 <9.0.0"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "bugs": {
     "url": "https://github.com/granitebps/mongoose-log-history/issues"
@@ -43,7 +43,7 @@
     "globals": "^16.2.0",
     "husky": "^9.1.7",
     "jest": "^30.0.0",
-    "lint-staged": "^16.1.1",
+    "lint-staged": "^15.2.2",
     "mongodb-memory-server": "^10.1.4",
     "prettier": "^3.5.3"
   },
