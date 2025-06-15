@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -41,10 +42,17 @@
     "eslint-plugin-prettier": "^5.4.1",
     "globals": "^16.2.0",
     "husky": "^9.1.7",
+    "jest": "^30.0.0",
     "lint-staged": "^16.1.1",
+    "mongodb-memory-server": "^10.1.4",
     "prettier": "^3.5.3"
   },
   "lint-staged": {
     "*.{js,mjs,cjs}": "eslint"
+  },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "<rootDir>/test/setup/mongodb.js"
+    ]
   }
 }
