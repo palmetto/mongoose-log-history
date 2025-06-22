@@ -3,13 +3,15 @@
 const zlib = require('zlib');
 
 /**
- * Decompress a gzip-compressed Buffer and return the original JavaScript object.
- * Used for decompressing `original_doc` and `updated_doc` when `compressDocs` is enabled.
- * @param {Buffer|any} buffer - The compressed data (Buffer). If not a Buffer, returns as-is.
+ * Decompress a gzip-compressed Buffer or MongoDB Binary and return the original JavaScript object.
+ * @param {Buffer|Object} buffer - The compressed data (Buffer or MongoDB Binary).
  * @returns {Object|null} The decompressed JavaScript object, or null if input is falsy.
  */
 function decompressObject(buffer) {
   if (!buffer) return null;
+  if (buffer._bsontype === 'Binary' && buffer.buffer) {
+    buffer = buffer.buffer;
+  }
   if (Buffer.isBuffer(buffer)) {
     const json = zlib.gunzipSync(buffer).toString();
     return JSON.parse(json);
