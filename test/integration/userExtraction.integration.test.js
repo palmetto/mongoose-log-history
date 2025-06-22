@@ -4,7 +4,6 @@ const { changeLoggingPlugin, getLogHistoryModel } = require('../../src');
 
 describe('mongoose-log-history plugin - User Extraction', () => {
   afterEach(async () => {
-    // Clean up all models and log collections after each test
     for (const modelName of Object.keys(mongoose.connection.models)) {
       await mongoose.connection.models[modelName].deleteMany({});
     }
@@ -109,7 +108,6 @@ describe('mongoose-log-history plugin - User Extraction', () => {
       modelName: 'OrderFallbackCreatedBy',
       trackedFields: [{ value: 'status' }],
       singleCollection: true,
-      // no userField
     });
     delete mongoose.connection.models.OrderFallbackCreatedBy;
     const OrderFallbackCreatedBy = mongoose.model('OrderFallbackCreatedBy', schema);
@@ -135,7 +133,6 @@ describe('mongoose-log-history plugin - User Extraction', () => {
       modelName: 'OrderFallbackUpdatedBy',
       trackedFields: [{ value: 'status' }],
       singleCollection: true,
-      // no userField
     });
     delete mongoose.connection.models.OrderFallbackUpdatedBy;
     const OrderFallbackUpdatedBy = mongoose.model('OrderFallbackUpdatedBy', schema);
@@ -161,7 +158,6 @@ describe('mongoose-log-history plugin - User Extraction', () => {
       modelName: 'OrderFallbackModifiedBy',
       trackedFields: [{ value: 'status' }],
       singleCollection: true,
-      // no userField
     });
     delete mongoose.connection.models.OrderFallbackModifiedBy;
     const OrderFallbackModifiedBy = mongoose.model('OrderFallbackModifiedBy', schema);
@@ -186,7 +182,6 @@ describe('mongoose-log-history plugin - User Extraction', () => {
       modelName: 'OrderNoUser',
       trackedFields: [{ value: 'status' }],
       singleCollection: true,
-      // no userField
     });
     delete mongoose.connection.models.OrderNoUser;
     const OrderNoUser = mongoose.model('OrderNoUser', schema);
