@@ -55,7 +55,7 @@ describe('mongoose-log-history plugin - Array Field Tracking', () => {
       const logs = await LogHistory.find({ model_id: order._id, change_type: 'update' }).lean();
       expect(logs.length).toBe(1);
       const log = logs[0];
-      // Should log one add (c) and one remove (a)
+
       expect(log.logs.length).toBe(2);
       expect(log.logs.some((l) => l.change_type === 'add' && l.to_value === 'c')).toBe(true);
       expect(log.logs.some((l) => l.change_type === 'remove' && l.from_value === 'a')).toBe(true);
@@ -102,7 +102,6 @@ describe('mongoose-log-history plugin - Array Field Tracking', () => {
       await wait();
 
       const logs = await LogHistory.find({ model_id: order._id, change_type: 'update' }).lean();
-      // No change, so no log
       expect(logs.length).toBe(0);
     });
   });
@@ -117,8 +116,8 @@ describe('mongoose-log-history plugin - Array Field Tracking', () => {
       });
       await LogHistory.deleteMany({});
       order.items = [
-        { sku: 'A', qty: 3, price: 10 }, // qty changed
-        { sku: 'C', qty: 4, price: 40 }, // new item
+        { sku: 'A', qty: 3, price: 10 },
+        { sku: 'C', qty: 4, price: 40 },
       ];
       await order.save();
       await wait();
@@ -126,7 +125,7 @@ describe('mongoose-log-history plugin - Array Field Tracking', () => {
       const logs = await LogHistory.find({ model_id: order._id, change_type: 'update' }).lean();
       expect(logs.length).toBe(1);
       const log = logs[0];
-      // Remove B, add C, edit A.qty
+
       expect(log.logs.some((l) => l.change_type === 'remove' && l.field_name === 'items')).toBe(true);
       expect(log.logs.some((l) => l.change_type === 'add' && l.field_name === 'items')).toBe(true);
       expect(log.logs.some((l) => l.change_type === 'edit' && l.field_name === 'items.qty')).toBe(true);
