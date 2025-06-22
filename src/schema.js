@@ -39,6 +39,8 @@ const logHistorySchema = new mongoose.Schema(
   }
 );
 
+logHistorySchema.index({ model: 1, model_id: 1, is_deleted: 1, created_at: -1 });
+
 /**
  * Get the log history Mongoose model for a given model name.
  * @param {string} modelName - The model name.
