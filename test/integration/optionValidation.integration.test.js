@@ -6,7 +6,6 @@ describe('mongoose-log-history plugin - Option Validation', () => {
     const schema = new mongoose.Schema({ status: String });
     expect(() => {
       schema.plugin(changeLoggingPlugin, {
-        // modelName missing
         trackedFields: [{ value: 'status' }],
       });
     }).toThrow(/modelName/);
@@ -24,7 +23,6 @@ describe('mongoose-log-history plugin - Option Validation', () => {
     expect(() => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
-        // trackedFields missing
       });
     }).toThrow(/trackedFields/);
 
@@ -69,7 +67,7 @@ describe('mongoose-log-history plugin - Option Validation', () => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
         trackedFields: [{ value: 'status' }],
-        logger: { error: () => {} }, // missing warn
+        logger: { error: () => {} },
       });
     }).toThrow(/logger/);
   });
@@ -96,7 +94,7 @@ describe('mongoose-log-history plugin - Option Validation', () => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
         trackedFields: [{ value: 'status' }],
-        softDelete: { field: 'status' }, // missing value
+        softDelete: { field: 'status' },
       });
     }).toThrow(/softDelete/);
   });
