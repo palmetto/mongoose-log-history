@@ -4,8 +4,6 @@ const { getTrackedChanges, buildLogEntry, getLogHistoryModel, decompressObject }
 async function main() {
   await mongoose.connect('mongodb://localhost:27017/mongoose_log_history_example');
 
-  const schema = new mongoose.Schema({ status: String, approver: String });
-  const Model = mongoose.model('ManualApi', schema);
   const LogHistory = getLogHistoryModel('ManualApi', true);
 
   const original = { status: 'pending', approver: 'Alice' };
