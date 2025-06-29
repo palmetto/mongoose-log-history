@@ -76,11 +76,6 @@ class ChangeLogPlugin {
     this.compressDocs = options.compressDocs === true;
   }
 
-  static ensureIndex() {
-    const index = { model: 1, model_id: 1, is_deleted: 1, created_at: -1 };
-    logHistorySchema.index(index);
-  }
-
   /**
    * Get the log history model for the current plugin instance.
    * @returns {mongoose.Model} The log history model.
@@ -830,8 +825,6 @@ function changeLoggingPlugin(schema, options = {}) {
   validateOptions(options);
 
   const ctx = new ChangeLogPlugin(options);
-
-  ChangeLogPlugin.ensureIndex();
 
   schema.statics.getHistoriesById = async function (modelId, fields, options) {
     const LogHistory = ctx.getLogHistoryModelPlugin();

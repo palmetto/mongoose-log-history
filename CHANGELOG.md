@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pruning utility and compression support.
 - Discriminator support.
 - Exposed internal helpers for manual logging.
-
 - First stable release.
 
 ---

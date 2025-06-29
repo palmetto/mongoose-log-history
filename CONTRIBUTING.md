@@ -27,14 +27,14 @@ Please ensure you are using a supported version of Node.js and Mongoose before c
 
 ### 3. Coding Standards
 
-- Use consistent code style (see `.prettierrc` or `.eslintrc` if present).
+- Use consistent code style.
 - Keep functions small and focused.
 - Add JSDoc comments to all public functions.
 - Write clear, maintainable code.
 
 ### 4. Running Tests
 
-- (Add instructions here when tests are available.)
+- Please make sure all test scenario are passed.
 
 ### 5. Code of Conduct
 
