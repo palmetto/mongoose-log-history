@@ -44,8 +44,6 @@ describe('mongoose-log-history plugin - Manual Logging API', () => {
     await LogHistory.deleteMany({});
   });
 
-  const wait = () => new Promise((resolve) => setTimeout(resolve, 100));
-
   it('getTrackedChanges detects add, remove, edit, and no change', () => {
     const trackedFields = [
       { value: 'status' },

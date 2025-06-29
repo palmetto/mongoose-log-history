@@ -2,7 +2,7 @@
 
 const mongoose = require('mongoose');
 
-const { getLogHistoryModel, logHistorySchema } = require('./schema');
+const { getLogHistoryModel } = require('./schema');
 const { getTrackedChanges, extractLogContext } = require('./change-tracking');
 const { compressObject, decompressObject } = require('./compression');
 const { getValueByPath, arrayToKeyMap, isEqual } = require('./utils');
