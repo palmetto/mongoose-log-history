@@ -24,6 +24,10 @@ dist/
 build/
 lib/
 
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
 # IDE/editor files
 .vscode/
 .idea/
