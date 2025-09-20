@@ -1,6 +1,6 @@
 require('../setup/mongodb');
 const mongoose = require('mongoose');
-const { changeLoggingPlugin, getLogHistoryModel } = require('../../src');
+const { changeLoggingPlugin, getLogHistoryModel } = require('../../dist');
 
 describe('mongoose-log-history plugin - Create Operation (all hooks and edge cases)', () => {
   let Order;

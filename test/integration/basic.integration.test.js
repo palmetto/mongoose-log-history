@@ -1,6 +1,6 @@
 require('../setup/mongodb');
 const mongoose = require('mongoose');
-const { changeLoggingPlugin } = require('../../src');
+const { changeLoggingPlugin } = require('../../dist');
 
 describe('mongoose-log-history plugin - Basic Integration', () => {
   let Order;

@@ -1,4 +1,4 @@
-const { getTrackedChanges, extractLogContext } = require('../../src/change-tracking');
+const { getTrackedChanges, extractLogContext } = require('../../dist/change-tracking');
 
 describe('change-tracking', () => {
   describe('getTrackedChanges', () => {

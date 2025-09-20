@@ -5,7 +5,7 @@ const {
   buildLogEntry,
   getLogHistoryModel,
   decompressObject,
-} = require('../../src');
+} = require('../../dist');
 
 describe('mongoose-log-history plugin - Manual Logging API', () => {
   let LogHistory;

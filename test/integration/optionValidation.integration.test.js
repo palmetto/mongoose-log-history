@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { changeLoggingPlugin } = require('../../src');
+const { changeLoggingPlugin } = require('../../dist');
 
 describe('mongoose-log-history plugin - Option Validation', () => {
   it('throws if modelName is missing or not a string', () => {
