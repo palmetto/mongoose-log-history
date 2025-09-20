@@ -6,7 +6,6 @@ import {
   SaveLogHistoryParams,
   BatchLogEntryParams,
   ExtractUserParams,
-  BuildLogEntryParams,
   LogHistoryModel,
   LogHistoryEntry,
   FieldLog,
@@ -24,20 +23,18 @@ import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClon
  * @param params - Parameters for building the log entry.
  * @returns A complete log entry object ready for database insertion.
  */
-export function buildLogEntry(params: BuildLogEntryParams): LogHistoryEntry {
-  const {
-    model_id,
-    model_name,
-    change_type,
-    logs,
-    created_by,
-    original_doc = null,
-    updated_doc = null,
-    context = null,
-    saveWholeDoc = false,
-    compressDocs = false,
-  } = params;
-
+export function buildLogEntry(
+  model_id: string | Types.ObjectId,
+  model_name: string,
+  change_type: ChangeType,
+  logs: FieldLog[],
+  created_by?: unknown,
+  original_doc?: unknown,
+  updated_doc?: unknown,
+  context?: Record<string, unknown>,
+  saveWholeDoc?: boolean,
+  compressDocs?: boolean
+): LogHistoryEntry {
   const modelIdAsObjectId = typeof model_id === 'string' ? new Types.ObjectId(model_id) : model_id;
 
   const entry: LogHistoryEntry = {
@@ -437,18 +434,18 @@ export class ChangeLogPlugin {
 
     try {
       const LogHistory = this.getLogHistoryModelPlugin();
-      const logEntry = buildLogEntry({
-        model_id: modelId,
-        model_name: this.modelName,
-        change_type: changeType,
-        logs: changes,
-        created_by: user,
-        original_doc: originalData,
-        updated_doc: updatedData,
-        ...(context ? { context } : {}),
-        saveWholeDoc: this.saveWholeDoc,
-        compressDocs: this.compressDocs,
-      });
+      const logEntry = buildLogEntry(
+        modelId,
+        this.modelName,
+        changeType,
+        changes,
+        user,
+        originalData,
+        updatedData,
+        context,
+        this.saveWholeDoc,
+        this.compressDocs
+      );
 
       await LogHistory.create(logEntry);
     } catch (err) {
@@ -489,18 +486,18 @@ export class ChangeLogPlugin {
           );
         }
 
-        const logEntry = buildLogEntry({
-          model_id: params.modelId,
-          model_name: this.modelName,
-          change_type: params.changeType,
-          logs: changes,
-          created_by: params.user,
-          original_doc: params.originalData,
-          updated_doc: params.updatedData,
-          ...(context ? { context } : {}),
-          saveWholeDoc: this.saveWholeDoc,
-          compressDocs: this.compressDocs,
-        });
+        const logEntry = buildLogEntry(
+          params.modelId,
+          this.modelName,
+          params.changeType,
+          changes,
+          params.user,
+          params.originalData,
+          params.updatedData,
+          context,
+          this.saveWholeDoc,
+          this.compressDocs
+        );
 
         return {
           insertOne: {
@@ -756,16 +753,18 @@ export class ChangeLogPlugin {
                 (doc as Document & { _id: Types.ObjectId })._id = new mongoose.Types.ObjectId();
               }
 
-              const modelId = getValueByPath(doc.toObject(), self.modelKeyId) as string | Types.ObjectId;
+              const modelId = getValueByPath(doc.toObject ? doc.toObject() : doc, self.modelKeyId) as
+                | string
+                | Types.ObjectId;
               const userData = self.extractUser({
-                doc: doc.toObject(),
+                doc: doc.toObject ? doc.toObject() : doc,
                 userField: self.userField,
               });
 
               logEntryParams.push({
                 modelId: modelId!,
                 changeType: 'create',
-                updatedData: doc.toObject(),
+                updatedData: doc.toObject ? doc.toObject() : doc,
                 user: userData,
               });
             }

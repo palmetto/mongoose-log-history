@@ -170,10 +170,10 @@ export interface FieldLog {
   field_name: string;
 
   /** String representation of the value before the change */
-  from_value: string | null;
+  from_value: string | null | undefined;
 
   /** String representation of the value after the change */
-  to_value: string | null;
+  to_value: string | null | undefined;
 
   /** The type of change that occurred */
   change_type: FieldChangeType;

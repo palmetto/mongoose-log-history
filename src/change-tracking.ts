@@ -75,6 +75,8 @@ export function extractLogContext(
  * @param originalDoc - The original document.
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
+ * @param beforeItem - The array item before change (optional, for array sub-fields).
+ * @param afterItem - The array item after change (optional, for array sub-fields).
  * @returns Array of change log objects for this field.
  */
 function processGenericFieldChanges(
@@ -83,7 +85,9 @@ function processGenericFieldChanges(
   afterValue: unknown,
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
-  parentFieldName: string | null = null
+  parentFieldName: string | null = null,
+  beforeItem: Record<string, unknown> | null = null,
+  afterItem: Record<string, unknown> | null = null
 ): FieldLog[] {
   const log: FieldLog[] = [];
   const fieldName = parentFieldName ?? field.value;
@@ -93,10 +97,10 @@ function processGenericFieldChanges(
   const rawBefore = valueToString(beforeValue);
   const rawAfter = valueToString(afterValue);
 
-  const beforeStr: string | null = rawBefore === null || rawBefore === undefined ? null : rawBefore;
-  const afterStr: string | null = rawAfter === null || rawAfter === undefined ? null : rawAfter;
+  const beforeStr: string | null | undefined = rawBefore;
+  const afterStr: string | null | undefined = rawAfter;
 
-  const context = extractLogContext(field.contextFields, originalDoc, updatedDoc);
+  const context = extractLogContext(field.contextFields, originalDoc, updatedDoc, beforeItem, afterItem);
 
   if (!beforeExists && !afterExists) {
     return log;
@@ -146,6 +150,8 @@ function processGenericFieldChanges(
  * @param originalDoc - The original document.
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
+ * @param beforeItem - The array item before change (optional, for array sub-fields).
+ * @param afterItem - The array item after change (optional, for array sub-fields).
  * @returns Array of change log objects for this field.
  */
 function processSimpleArrayChanges(
@@ -154,7 +160,9 @@ function processSimpleArrayChanges(
   afterValue: unknown,
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
-  parentFieldName: string | null = null
+  parentFieldName: string | null = null,
+  beforeItem: Record<string, unknown> | null = null,
+  afterItem: Record<string, unknown> | null = null
 ): FieldLog[] {
   const log: FieldLog[] = [];
 
@@ -164,7 +172,7 @@ function processSimpleArrayChanges(
   const { added, removed }: ArrayDiff = diffSimpleArray(beforeArray, afterArray);
 
   const fieldName = parentFieldName ?? field.value;
-  const context = extractLogContext(field.contextFields, originalDoc, updatedDoc);
+  const context = extractLogContext(field.contextFields, originalDoc, updatedDoc, beforeItem, afterItem);
 
   for (const item of added) {
     const v = valueToString(item);
@@ -201,6 +209,8 @@ function processSimpleArrayChanges(
  * @param originalDoc - The original document.
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
+ * @param beforeItem - The array item before change (optional, for array sub-fields).
+ * @param afterItem - The array item after change (optional, for array sub-fields).
  * @returns Array of change log objects for this field.
  */
 function processCustomKeyArrayChanges(
@@ -264,7 +274,7 @@ function processCustomKeyArrayChanges(
     }
 
     if (beforeExists && afterExists && Array.isArray(field.trackedFields)) {
-      log.push(...processSubFieldChanges(field, beforeItem, afterItem, originalDoc, updatedDoc, fieldName));
+      log.push(...processSubFieldChanges(field, beforeItem, afterItem, originalDoc, updatedDoc, fieldName, context));
     }
   }
 
@@ -279,6 +289,7 @@ function processCustomKeyArrayChanges(
  * @param originalDoc - The original document.
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
+ * @param parentContext - The context from the parent field (optional).
  * @returns Array of change log objects for nested fields.
  */
 function processSubFieldChanges(
@@ -287,7 +298,8 @@ function processSubFieldChanges(
   afterItem: Record<string, unknown>,
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
-  parentFieldName: string | null = null
+  parentFieldName: string | null = null,
+  parentContext: Record<string, unknown> | undefined = undefined
 ): FieldLog[] {
   const log: FieldLog[] = [];
 
@@ -302,13 +314,56 @@ function processSubFieldChanges(
 
     const fieldName = `${parentFieldName ?? field.value}.${subPath}`;
 
+    let subLogs: FieldLog[] = [];
     if (subField.arrayType === 'simple') {
-      log.push(...processSimpleArrayChanges(subField, beforeVal, afterVal, originalDoc, updatedDoc, fieldName));
+      subLogs = processSimpleArrayChanges(
+        subField,
+        beforeVal,
+        afterVal,
+        originalDoc,
+        updatedDoc,
+        fieldName,
+        beforeItem,
+        afterItem
+      );
     } else if (subField.arrayType === 'custom-key' && subField.arrayKey) {
-      log.push(...processCustomKeyArrayChanges(subField, beforeVal, afterVal, originalDoc, updatedDoc, fieldName));
+      subLogs = processCustomKeyArrayChanges(subField, beforeVal, afterVal, originalDoc, updatedDoc, fieldName);
     } else {
-      log.push(...processGenericFieldChanges(subField, beforeVal, afterVal, originalDoc, updatedDoc, fieldName));
+      subLogs = processGenericFieldChanges(
+        subField,
+        beforeVal,
+        afterVal,
+        originalDoc,
+        updatedDoc,
+        fieldName,
+        beforeItem,
+        afterItem
+      );
     }
+
+    if (parentContext) {
+      subLogs = subLogs.map((subLog) => {
+        if (!subLog.context) {
+          return { ...subLog, context: parentContext };
+        }
+
+        const mergedContext: Record<string, unknown> = { ...parentContext };
+        for (const [key, value] of Object.entries(subLog.context)) {
+          if (mergedContext[key] && typeof mergedContext[key] === 'object' && typeof value === 'object') {
+            mergedContext[key] = {
+              ...(mergedContext[key] as Record<string, unknown>),
+              ...(value as Record<string, unknown>),
+            };
+          } else {
+            mergedContext[key] = value;
+          }
+        }
+
+        return { ...subLog, context: mergedContext };
+      });
+    }
+
+    log.push(...subLogs);
   }
 
   return log;
