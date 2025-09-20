@@ -10,6 +10,7 @@ import {
   LogHistoryEntry,
   FieldLog,
   ChangeType,
+  BuildLogEntryParams,
 } from './types';
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
@@ -19,9 +20,44 @@ import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClon
 /**
  * Build a log entry object compatible with the plugin's log schema.
  * This function creates a standardized log entry that can be saved to the database.
+ * Supports both object parameters (new API) and positional parameters (legacy API).
  *
- * @param params - Parameters for building the log entry.
- * @returns A complete log entry object ready for database insertion.
+ * @example
+ * // Object-based API (recommended for TypeScript)
+ * const logEntry = buildLogEntry({
+ *   model_id: new Types.ObjectId(),
+ *   model_name: 'User',
+ *   change_type: 'update',
+ *   logs: changes,
+ *   created_by: 'admin',
+ *   saveWholeDoc: true
+ * });
+ *
+ * @example
+ * // Legacy positional API (for backward compatibility)
+ * const logEntry = buildLogEntry(
+ *   new Types.ObjectId(),
+ *   'User',
+ *   'update',
+ *   changes,
+ *   'admin',
+ *   originalDoc,
+ *   updatedDoc,
+ *   context,
+ *   true
+ * );
+ *
+ * @param paramsOrModelId - Either a BuildLogEntryParams object (new API) or model_id (legacy API)
+ * @param model_name - The model name (legacy API only)
+ * @param change_type - The type of change (legacy API only)
+ * @param logs - Array of field-level changes (legacy API only)
+ * @param created_by - User who made the change (legacy API only)
+ * @param original_doc - Original document state (legacy API only)
+ * @param updated_doc - Updated document state (legacy API only)
+ * @param context - Additional context data (legacy API only)
+ * @param saveWholeDoc - Whether to save complete documents (legacy API only)
+ * @param compressDocs - Whether to compress saved documents (legacy API only)
+ * @returns A complete log entry object ready for database insertion
  */
 export function buildLogEntry(
   model_id: string | Types.ObjectId,
@@ -34,27 +70,78 @@ export function buildLogEntry(
   context?: Record<string, unknown>,
   saveWholeDoc?: boolean,
   compressDocs?: boolean
+): LogHistoryEntry;
+export function buildLogEntry(params: BuildLogEntryParams): LogHistoryEntry;
+export function buildLogEntry(
+  paramsOrModelId: BuildLogEntryParams | string | Types.ObjectId,
+  model_name?: string,
+  change_type?: ChangeType,
+  logs?: FieldLog[],
+  created_by?: unknown,
+  original_doc?: unknown,
+  updated_doc?: unknown,
+  context?: Record<string, unknown>,
+  saveWholeDoc?: boolean,
+  compressDocs?: boolean
 ): LogHistoryEntry {
+  let params: BuildLogEntryParams;
+
+  if (typeof paramsOrModelId === 'object' && paramsOrModelId && 'model_id' in paramsOrModelId) {
+    // New object-based API
+    params = paramsOrModelId as BuildLogEntryParams;
+  } else {
+    // Legacy positional parameters API
+    params = {
+      model_id: paramsOrModelId as string | Types.ObjectId,
+      model_name: model_name!,
+      change_type: change_type!,
+      logs: logs!,
+      created_by,
+      original_doc,
+      updated_doc,
+      context,
+      saveWholeDoc: saveWholeDoc || false,
+      compressDocs: compressDocs || false,
+    };
+  }
+
+  const {
+    model_id,
+    model_name: modelName,
+    change_type: changeType,
+    logs: fieldLogs,
+    created_by: createdBy,
+    original_doc: originalDoc = null,
+    updated_doc: updatedDoc = null,
+    context: contextData = null,
+    saveWholeDoc: saveWholeDocument = false,
+    compressDocs: compressDocuments = false,
+  } = params;
+
   const modelIdAsObjectId = typeof model_id === 'string' ? new Types.ObjectId(model_id) : model_id;
 
   const entry: LogHistoryEntry = {
-    model: model_name,
+    model: modelName,
     model_id: modelIdAsObjectId,
-    change_type,
-    logs,
-    created_by,
+    change_type: changeType,
+    logs: fieldLogs,
+    created_by: createdBy,
     is_deleted: false,
     created_at: new Date(),
   };
 
-  if (context) {
-    entry.context = context;
+  if (contextData) {
+    entry.context = contextData;
   }
 
-  if (saveWholeDoc) {
-    entry.original_doc = original_doc ? (compressDocs ? compressObject(original_doc) : deepClone(original_doc)) : null;
+  if (saveWholeDocument) {
+    entry.original_doc = originalDoc
+      ? compressDocuments
+        ? compressObject(originalDoc)
+        : deepClone(originalDoc)
+      : null;
 
-    entry.updated_doc = updated_doc ? (compressDocs ? compressObject(updated_doc) : deepClone(updated_doc)) : null;
+    entry.updated_doc = updatedDoc ? (compressDocuments ? compressObject(updatedDoc) : deepClone(updatedDoc)) : null;
   }
 
   return entry;
@@ -434,18 +521,18 @@ export class ChangeLogPlugin {
 
     try {
       const LogHistory = this.getLogHistoryModelPlugin();
-      const logEntry = buildLogEntry(
-        modelId,
-        this.modelName,
-        changeType,
-        changes,
-        user,
-        originalData,
-        updatedData,
+      const logEntry = buildLogEntry({
+        model_id: modelId,
+        model_name: this.modelName,
+        change_type: changeType,
+        logs: changes,
+        created_by: user,
+        original_doc: originalData,
+        updated_doc: updatedData,
         context,
-        this.saveWholeDoc,
-        this.compressDocs
-      );
+        saveWholeDoc: this.saveWholeDoc,
+        compressDocs: this.compressDocs,
+      });
 
       await LogHistory.create(logEntry);
     } catch (err) {
@@ -486,18 +573,18 @@ export class ChangeLogPlugin {
           );
         }
 
-        const logEntry = buildLogEntry(
-          params.modelId,
-          this.modelName,
-          params.changeType,
-          changes,
-          params.user,
-          params.originalData,
-          params.updatedData,
+        const logEntry = buildLogEntry({
+          model_id: params.modelId,
+          model_name: this.modelName,
+          change_type: params.changeType,
+          logs: changes,
+          created_by: params.user,
+          original_doc: params.originalData,
+          updated_doc: params.updatedData,
           context,
-          this.saveWholeDoc,
-          this.compressDocs
-        );
+          saveWholeDoc: this.saveWholeDoc,
+          compressDocs: this.compressDocs,
+        });
 
         return {
           insertOne: {
