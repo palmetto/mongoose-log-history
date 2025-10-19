@@ -2,10 +2,31 @@
   "name": "mongoose-log-history",
   "version": "1.0.1",
   "description": "A Mongoose plugin to automatically track and log changes (create, update, delete) to your models, with detailed audit history and flexible configuration.",
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "lint": "eslint .",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "prebuild": "rimraf dist",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint . --format=stylish",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
+    "type-check": "tsc --noEmit",
+    "test:ci": "npm run type-check && npm run build && npm run lint",
     "prepare": "husky",
     "test": "jest"
   },
@@ -37,6 +58,9 @@
   "homepage": "https://github.com/granitebps/mongoose-log-history#readme",
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.4.1",
@@ -45,10 +69,13 @@
     "jest": "^30.0.0",
     "lint-staged": "^15.2.2",
     "mongodb-memory-server": "^10.1.4",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.6.0"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs}": "eslint"
+    "*.{js,mjs,cjs,ts}": "eslint",
+    "*.{js,mjs,cjs,ts,json,md}": "prettier --write"
   },
   "jest": {
     "setupFilesAfterEnv": [

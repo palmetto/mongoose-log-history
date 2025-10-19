@@ -17,6 +17,7 @@ A Mongoose plugin to **automatically track and log changes** (create, update, de
 
 ## Features
 
+- **Full TypeScript support** with comprehensive type definitions
 - Tracks create, update, delete, and soft delete operations on your Mongoose models
 - Field-level change tracking (including nested fields and arrays)
 - Flexible configuration: choose which fields to track, handle arrays, soft deletes, and more
@@ -34,6 +35,12 @@ A Mongoose plugin to **automatically track and log changes** (create, update, de
 
 ```bash
 npm install mongoose-log-history mongoose
+```
+
+For TypeScript projects, the package includes built-in type definitions:
+
+```bash
+npm install mongoose-log-history mongoose @types/mongoose
 ```
 
 ---
@@ -96,13 +103,86 @@ orderSchema.plugin(changeLoggingPlugin, {
 const Order = mongoose.model('Order', orderSchema);
 ```
 
+### TypeScript Example
+
+```typescript
+import mongoose, { Schema, Document } from 'mongoose';
+import { changeLoggingPlugin, PluginOptions } from 'mongoose-log-history';
+
+interface IOrder extends Document {
+  status: string;
+  tags: string[];
+  items: Array<{
+    sku: string;
+    qty: number;
+    price: number;
+  }>;
+  created_by: {
+    id: mongoose.Types.ObjectId;
+    name: string;
+    role: string;
+  };
+}
+
+const orderSchema = new Schema<IOrder>({
+  status: String,
+  tags: [String],
+  items: [
+    {
+      sku: String,
+      qty: Number,
+      price: Number,
+    },
+  ],
+  created_by: {
+    id: Schema.Types.ObjectId,
+    name: String,
+    role: String,
+  },
+});
+
+// Type-safe plugin configuration
+const pluginOptions: PluginOptions = {
+  modelName: 'order',
+  trackedFields: [
+    { value: 'status' },
+    { value: 'tags', arrayType: 'simple' },
+    {
+      value: 'items',
+      arrayType: 'custom-key',
+      arrayKey: 'sku',
+      valueField: 'qty',
+      trackedFields: [{ value: 'qty' }, { value: 'price' }],
+      contextFields: {
+        doc: ['created_by.name'],
+        item: ['sku', 'qty'],
+      },
+    },
+  ],
+  contextFields: ['created_by.name'],
+  singleCollection: true,
+  saveWholeDoc: false,
+  maxBatchLog: 1000,
+  batchSize: 100,
+  logger: console,
+  softDelete: {
+    field: 'status',
+    value: 'deleted',
+  },
+};
+
+orderSchema.plugin(changeLoggingPlugin, pluginOptions);
+
+const Order = mongoose.model<IOrder>('Order', orderSchema);
+```
+
 ---
 
 ## Configuration Options
 
 | Option             | Type    | Default      | Description                                                                                                                                            |
 | ------------------ | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modelName`        | string  | model name   | Model identification (REQUIRED)                                                                                            |
+| `modelName`        | string  | model name   | Model identification (REQUIRED)                                                                                                                        |
 | `modelKeyId`       | string  | `_id`        | ID key that identifies the model                                                                                                                       |
 | `softDelete`       | object  |              | Soft delete config: `{ field, value }`. When the specified field is set to the given value, the plugin logs a `delete` operation instead of an update. |
 | `contextFields`    | array   |              | Extra fields to include in the log context (array of field paths from the document itself; must be an array at the plugin level)                       |
@@ -301,7 +381,7 @@ Each log entry in the log history collection has the following structure:
 
 | Field          | Type     | Description                                                              |
 | -------------- | -------- | ------------------------------------------------------------------------ |
-| `model`        | string   | The name of the model being tracked         |
+| `model`        | string   | The name of the model being tracked                                      |
 | `model_id`     | ObjectId | The ID of the tracked document                                           |
 | `change_type`  | string   | The type of change: `'create'`, `'update'`, or `'delete'`                |
 | `logs`         | array    | Array of field-level change objects (see below)                          |

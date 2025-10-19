@@ -1,3 +1,10 @@
+# TypeScript source files - we publish the compiled output
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+tsconfig.*.json
+
 # Tests and coverage
 test/
 tests/
@@ -5,7 +12,9 @@ __tests__/
 coverage/
 .nyc_output/
 *.test.js
+*.test.ts
 *.spec.js
+*.spec.ts
 
 # Build scripts and configs
 *.config.js
@@ -15,6 +24,7 @@ coverage/
 jest.*
 babel.*
 .eslintrc*
+eslint.config.*
 .prettierrc*
 .editorconfig
 .vscode/
@@ -29,6 +39,9 @@ docs/
 doc/
 *.md
 
+# Include README for npm
+!README.md
+
 # OS and misc
 .DS_Store
 Thumbs.db
@@ -42,7 +55,6 @@ Thumbs.db
 .gitignore
 .gitattributes
 
-# Ignore build output
-dist/
-build/
-lib/
+# Dev dependencies and build artifacts
+node_modules/
+.git/

@@ -1,6 +1,6 @@
 require('../setup/mongodb');
 const mongoose = require('mongoose');
-const { changeLoggingPlugin, getLogHistoryModel, decompressObject } = require('../../src');
+const { changeLoggingPlugin, getLogHistoryModel, decompressObject } = require('../../dist');
 const { Binary } = require('mongodb');
 
 describe('mongoose-log-history plugin - Compression', () => {

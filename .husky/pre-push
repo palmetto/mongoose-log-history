@@ -1,0 +1,15 @@
+echo "🚀 Running pre-push checks..."
+
+# Type check
+echo "📋 Type checking..."
+npx tsc --noEmit || exit 1
+
+# Build
+echo "🔨 Building..."
+npm run build || exit 1
+
+# Run tests
+echo "🧪 Running tests..."
+npm test || exit 1
+
+echo "✅ All pre-push checks passed!"

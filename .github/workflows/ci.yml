@@ -29,6 +29,12 @@ jobs:
       - name: Install Mongoose version ${{ matrix.mongoose-version }}
         run: npm install mongoose@${{ matrix.mongoose-version }}
 
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build TypeScript
+        run: npm run build
+
       - name: Lint code
         run: npm run lint
 

@@ -10,7 +10,7 @@ const {
   diffSimpleArray,
   setByPath,
   valueToString,
-} = require('../../src/utils');
+} = require('../../dist/utils');
 
 describe('utils', () => {
   describe('isDate', () => {
