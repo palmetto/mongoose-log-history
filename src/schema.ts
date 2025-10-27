@@ -46,9 +46,9 @@ const logHistorySchema = new Schema<LogHistoryDocument>(
       required: true,
     },
 
-    /** The ObjectId of the document that was changed */
+    /** The ID of the document that was changed. Can be string, number or ObjectId */
     model_id: {
-      type: Schema.Types.ObjectId,
+      type: Schema.Types.Mixed,
       required: true,
     },
 

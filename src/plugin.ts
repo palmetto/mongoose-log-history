@@ -60,7 +60,7 @@ import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClon
  * @returns A complete log entry object ready for database insertion
  */
 export function buildLogEntry(
-  model_id: string | Types.ObjectId,
+  model_id: string | number | Types.ObjectId,
   model_name: string,
   change_type: ChangeType,
   logs: FieldLog[],
@@ -73,7 +73,7 @@ export function buildLogEntry(
 ): LogHistoryEntry;
 export function buildLogEntry(params: BuildLogEntryParams): LogHistoryEntry;
 export function buildLogEntry(
-  paramsOrModelId: BuildLogEntryParams | string | Types.ObjectId,
+  paramsOrModelId: BuildLogEntryParams | string | number | Types.ObjectId,
   model_name?: string,
   change_type?: ChangeType,
   logs?: FieldLog[],
@@ -92,7 +92,7 @@ export function buildLogEntry(
   } else {
     // Legacy positional parameters API
     params = {
-      model_id: paramsOrModelId as string | Types.ObjectId,
+      model_id: paramsOrModelId as string | number | Types.ObjectId,
       model_name: model_name!,
       change_type: change_type!,
       logs: logs!,
@@ -118,11 +118,9 @@ export function buildLogEntry(
     compressDocs: compressDocuments = false,
   } = params;
 
-  const modelIdAsObjectId = typeof model_id === 'string' ? new Types.ObjectId(model_id) : model_id;
-
   const entry: LogHistoryEntry = {
     model: modelName,
-    model_id: modelIdAsObjectId,
+    model_id,
     change_type: changeType,
     logs: fieldLogs,
     created_by: createdBy,
@@ -665,7 +663,7 @@ export class ChangeLogPlugin {
     const self = this;
 
     return async function preUpdateHook(this: Query<unknown, unknown>, next: () => void) {
-      let modelId: string | Types.ObjectId | undefined;
+      let modelId: string | number | Types.ObjectId | undefined;
 
       try {
         const query = this;
@@ -696,9 +694,9 @@ export class ChangeLogPlugin {
 
         const updatedData = originalDoc ? { ...originalDoc, ...updateFields } : updateFields;
 
-        modelId = getValueByPath(updatedData, self.modelKeyId) as string | Types.ObjectId;
+        modelId = getValueByPath(updatedData, self.modelKeyId) as string | number | Types.ObjectId;
         if (!modelId) {
-          modelId = getValueByPath(filter, self.modelKeyId) as string | Types.ObjectId;
+          modelId = getValueByPath(filter, self.modelKeyId) as string | number | Types.ObjectId;
         }
 
         const user = self.extractUser({
@@ -758,7 +756,7 @@ export class ChangeLogPlugin {
     const self = this;
 
     return async function preSaveHook(this: Document, next: () => void) {
-      let modelId: string | Types.ObjectId | undefined;
+      let modelId: string | number | Types.ObjectId | undefined;
 
       try {
         const doc = this;
@@ -770,7 +768,7 @@ export class ChangeLogPlugin {
         });
 
         const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
-        modelId = getValueByPath(doc.toObject(), self.modelKeyId) as string | Types.ObjectId;
+        modelId = getValueByPath(doc.toObject(), self.modelKeyId) as string | number | Types.ObjectId;
 
         if (isNew) {
           await self.saveLogHistory({
@@ -842,6 +840,7 @@ export class ChangeLogPlugin {
 
               const modelId = getValueByPath(doc.toObject ? doc.toObject() : doc, self.modelKeyId) as
                 | string
+                | number
                 | Types.ObjectId;
               const userData = self.extractUser({
                 doc: doc.toObject ? doc.toObject() : doc,
@@ -896,7 +895,7 @@ export class ChangeLogPlugin {
             const logEntryParamsArray: BatchLogEntryParams[] = [];
 
             for (const doc of batch) {
-              const modelId = getValueByPath(doc, self.modelKeyId) as string | Types.ObjectId;
+              const modelId = getValueByPath(doc, self.modelKeyId) as string | number | Types.ObjectId;
               const userData = self.extractUser({
                 doc,
                 context,
@@ -965,7 +964,7 @@ export class ChangeLogPlugin {
               }
               const updatedData = { ...originalDoc, ...updateFields } as Record<string, unknown>;
               const modelId = (getValueByPath(updatedData, self.modelKeyId) ||
-                getValueByPath(filter, self.modelKeyId)) as string | Types.ObjectId;
+                getValueByPath(filter, self.modelKeyId)) as string | number | Types.ObjectId;
               const user = self.extractUser({ doc: updatedData, context, userField: self.userField });
               logEntryParams.push({
                 modelId: modelId!,
@@ -1006,7 +1005,7 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
   const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName });
 
   (schema.statics as Record<string, unknown>).getHistoriesById = async function (
-    modelId: string | Types.ObjectId,
+    modelId: string | number | Types.ObjectId,
     fields?: unknown,
     findOptions?: unknown
   ): Promise<LogHistoryEntry[]> {
