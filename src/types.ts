@@ -190,7 +190,7 @@ export interface LogHistoryEntry {
   model: string;
 
   /** The ObjectId of the document that was changed */
-  model_id: Types.ObjectId;
+  model_id: Types.ObjectId | string | number;
 
   /** The type of change operation */
   change_type: ChangeType;
@@ -225,7 +225,7 @@ export interface LogHistoryDocument extends Omit<Document, 'model'> {
   model: string;
 
   /** The ObjectId of the document that was changed */
-  model_id: Types.ObjectId;
+  model_id: Types.ObjectId | string | number;
 
   /** The type of change operation */
   change_type: ChangeType;
@@ -261,7 +261,7 @@ export interface LogHistoryModel extends Model<LogHistoryDocument> {}
  * Parameters for building a log entry.
  */
 export interface BuildLogEntryParams {
-  model_id: string | Types.ObjectId;
+  model_id: string | number | Types.ObjectId;
   model_name: string;
   change_type: ChangeType;
   logs: FieldLog[];
@@ -277,7 +277,7 @@ export interface BuildLogEntryParams {
  * Parameters for saving a single log history entry.
  */
 export interface SaveLogHistoryParams {
-  modelId: string | Types.ObjectId;
+  modelId: string | number | Types.ObjectId;
   originalData?: Record<string, unknown>;
   updatedData?: Record<string, unknown>;
   changeType?: ChangeType;
@@ -288,7 +288,7 @@ export interface SaveLogHistoryParams {
  * Parameters for batch log history operations.
  */
 export interface BatchLogEntryParams {
-  modelId: string | Types.ObjectId;
+  modelId: string | number | Types.ObjectId;
   originalData?: Record<string, unknown>;
   updatedData?: Record<string, unknown>;
   changeType: ChangeType;
