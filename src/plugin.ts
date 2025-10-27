@@ -1,4 +1,4 @@
-import mongoose, { Document, Query, Model, Types } from 'mongoose';
+import mongoose, { Document, Query, Model, Types, isValidObjectId } from 'mongoose';
 import {
   PluginOptions,
   TrackedField,
@@ -1010,7 +1010,10 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
     findOptions?: unknown
   ): Promise<LogHistoryEntry[]> {
     const historyModel: LogHistoryModel = pluginInstance.getLogHistoryModelPlugin();
-    const query: Record<string, unknown> = { model_id: modelId, is_deleted: false };
+    const query: Record<string, unknown> = {
+      model_id: isValidObjectId(modelId) ? new Types.ObjectId(modelId) : modelId,
+      is_deleted: false,
+    };
     if (pluginInstance.singleCollection) query.model = pluginInstance.modelName;
 
     const logs = (await historyModel.find(query, fields as any, findOptions as any).lean()) as LogHistoryEntry[];
