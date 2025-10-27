@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-10-27
+
 ### Changed
 
-- Migrate to Typescript
+- Migrate codebase to TypeScript
+
+### Added
+
+- Support for string and number types for `modelId` field
+- Support for embedded dot notation fields
 
 ## [1.0.1] - 2025-08-03
 
@@ -37,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/granitebps/mongoose-log-history/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/granitebps/mongoose-log-history/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/granitebps/mongoose-log-history/releases/tag/v1.1.0
 [1.0.1]: https://github.com/granitebps/mongoose-log-history/releases/tag/v1.0.1
 [1.0.0]: https://github.com/granitebps/mongoose-log-history/releases/tag/v1.0.0
