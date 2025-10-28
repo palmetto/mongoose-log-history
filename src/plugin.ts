@@ -155,7 +155,7 @@ export class ChangeLogPlugin {
   public readonly modelKeyId: string;
   public readonly trackedFields: TrackedField[];
   public readonly contextFields: string[];
-  public readonly softDelete: { field: string; value: unknown } | null | ((value: unknown) => boolean);
+  public readonly softDelete: ((value: unknown) => boolean) | null;
   public readonly singleCollection: boolean;
   public readonly saveWholeDoc: boolean;
   public readonly maxBatchLog: number;
@@ -171,7 +171,18 @@ export class ChangeLogPlugin {
     this.modelKeyId = options.modelKeyId ?? '_id';
     this.trackedFields = options.trackedFields ?? [];
     this.contextFields = options.contextFields ?? [];
-    this.softDelete = options.softDelete ?? null;
+    if (options.softDelete) {
+      if (typeof options.softDelete === 'function') {
+        this.softDelete = options.softDelete;
+      } else {
+        const softDelete = options.softDelete;
+
+        this.softDelete = (doc: unknown) =>
+          getValueByPath(doc as Record<string, unknown>, softDelete.field) === softDelete.value;
+      }
+    } else {
+      this.softDelete = null;
+    }
     this.singleCollection = options.singleCollection === true;
     this.saveWholeDoc = options.saveWholeDoc === true;
     this.maxBatchLog = options.maxBatchLog ?? 1000;
@@ -684,17 +695,8 @@ export class ChangeLogPlugin {
 
         let isSoftDelete = false;
         if (self.softDelete && updateFields && originalDoc) {
-          let wasDeleted = false;
-          let willBeDeleted = false;
-
-          if (typeof self.softDelete === 'function') {
-            wasDeleted = self.softDelete(originalDoc);
-            willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
-          } else {
-            wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-            willBeDeleted =
-              getValueByPath({ ...originalDoc, ...updateFields }, self.softDelete.field) === self.softDelete.value;
-          }
+          const wasDeleted = self.softDelete(originalDoc);
+          const willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
           if (!wasDeleted && willBeDeleted) {
             isSoftDelete = true;
           }
@@ -797,16 +799,8 @@ export class ChangeLogPlugin {
 
           let isSoftDelete = false;
           if (self.softDelete) {
-            let wasDeleted = false;
-            let willBeDeleted = false;
-
-            if (typeof self.softDelete === 'function') {
-              wasDeleted = self.softDelete(originalDoc);
-              willBeDeleted = self.softDelete(doc.toObject());
-            } else {
-              wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-              willBeDeleted = getValueByPath(doc.toObject(), self.softDelete.field) === self.softDelete.value;
-            }
+            const wasDeleted = self.softDelete(originalDoc);
+            const willBeDeleted = self.softDelete(doc.toObject());
             if (!wasDeleted && willBeDeleted) {
               isSoftDelete = true;
             }
@@ -971,18 +965,8 @@ export class ChangeLogPlugin {
               const updateFields = self.extractUpdateFields(update, originalDoc);
               let isSoftDelete = false;
               if (self.softDelete && updateFields) {
-                let wasDeleted = false;
-                let willBeDeleted = false;
-
-                if (typeof self.softDelete === 'function') {
-                  wasDeleted = self.softDelete(originalDoc);
-                  willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
-                } else {
-                  wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-                  willBeDeleted =
-                    getValueByPath({ ...originalDoc, ...updateFields }, self.softDelete.field) ===
-                    self.softDelete.value;
-                }
+                const wasDeleted = self.softDelete(originalDoc);
+                const willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
                 if (!wasDeleted && willBeDeleted) {
                   isSoftDelete = true;
                 }
