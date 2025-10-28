@@ -34,7 +34,7 @@ export type SoftDeleteConfig =
       /** The value that indicates a document is soft deleted */
       value: unknown;
     }
-  | ((doc: unknown) => boolean);
+  | ((doc: Record<string, unknown>) => boolean);
 
 /**
  * Context fields configuration for extracting additional metadata.

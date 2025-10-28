@@ -155,7 +155,7 @@ export class ChangeLogPlugin {
   public readonly modelKeyId: string;
   public readonly trackedFields: TrackedField[];
   public readonly contextFields: string[];
-  public readonly softDelete: ((value: unknown) => boolean) | null;
+  public readonly softDelete: ((value: Record<string, unknown>) => boolean) | null;
   public readonly singleCollection: boolean;
   public readonly saveWholeDoc: boolean;
   public readonly maxBatchLog: number;
@@ -177,8 +177,7 @@ export class ChangeLogPlugin {
       } else {
         const softDelete = options.softDelete;
 
-        this.softDelete = (doc: unknown) =>
-          getValueByPath(doc as Record<string, unknown>, softDelete.field) === softDelete.value;
+        this.softDelete = (doc: Record<string, unknown>) => getValueByPath(doc, softDelete.field) === softDelete.value;
       }
     } else {
       this.softDelete = null;
