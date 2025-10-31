@@ -154,6 +154,7 @@ export class ChangeLogPlugin {
   public readonly modelName: string;
   public readonly modelKeyId: string;
   public readonly trackedFields: TrackedField[];
+  public readonly selectTrackedFields: string;
   public readonly contextFields: string[];
   public readonly softDelete: ((value: Record<string, unknown>) => boolean) | null;
   public readonly singleCollection: boolean;
@@ -189,6 +190,7 @@ export class ChangeLogPlugin {
     this.logger = options.logger ?? console;
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
+    this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
   }
 
   /**
@@ -683,9 +685,7 @@ export class ChangeLogPlugin {
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
-
-        const originalDoc = (await model.findOne(filter).select(trackedPaths.join(' ')).lean()) as Record<
+        const originalDoc = (await model.findOne(filter).select(self.selectTrackedFields).lean()) as Record<
           string,
           unknown
         > | null;
@@ -776,7 +776,6 @@ export class ChangeLogPlugin {
           userField: self.userField,
         });
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
         modelId = getValueByPath(doc.toObject(), self.modelKeyId) as string | number | Types.ObjectId;
 
         if (isNew) {
@@ -789,7 +788,7 @@ export class ChangeLogPlugin {
         } else {
           const originalDoc = (await (doc.constructor as Model<Document>)
             .findById(doc._id)
-            .select(trackedPaths.join(' '))
+            .select(self.selectTrackedFields)
             .lean()) as Record<string, unknown> | null;
 
           if (!originalDoc) {
@@ -949,8 +948,7 @@ export class ChangeLogPlugin {
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
-        const originalDocs = (await model.find(filter).select(trackedPaths.join(' ')).lean()) as Record<
+        const originalDocs = (await model.find(filter).select(self.selectTrackedFields).lean()) as Record<
           string,
           unknown
         >[];
