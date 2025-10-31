@@ -27,7 +27,7 @@ jobs:
         run: |
           npm config set @palmetto:registry=https://registry.npmjs.org/
           npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
-          npm publish
+          npm publish --access=public
       - name: Publish to GitHub
         run: |
           npm config set @palmetto:registry=https://npm.pkg.github.com/
