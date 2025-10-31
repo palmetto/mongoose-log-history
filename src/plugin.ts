@@ -171,8 +171,9 @@ export class ChangeLogPlugin {
   public readonly modelName: string;
   public readonly modelKeyId: string;
   public readonly trackedFields: TrackedField[];
+  public readonly selectTrackedFields: string;
   public readonly contextFields: string[];
-  public readonly softDelete: { field: string; value: unknown } | null;
+  public readonly softDelete: ((value: Record<string, unknown>) => boolean) | null;
   public readonly singleCollection: boolean;
   public readonly saveWholeDoc: boolean;
   public readonly maxBatchLog: number;
@@ -189,7 +190,17 @@ export class ChangeLogPlugin {
     this.modelKeyId = options.modelKeyId ?? '_id';
     this.trackedFields = options.trackedFields ?? [];
     this.contextFields = options.contextFields ?? [];
-    this.softDelete = options.softDelete ?? null;
+    if (options.softDelete) {
+      if (typeof options.softDelete === 'function') {
+        this.softDelete = options.softDelete;
+      } else {
+        const softDelete = options.softDelete;
+
+        this.softDelete = (doc: Record<string, unknown>) => getValueByPath(doc, softDelete.field) === softDelete.value;
+      }
+    } else {
+      this.softDelete = null;
+    }
     this.singleCollection = options.singleCollection === true;
     this.saveWholeDoc = options.saveWholeDoc === true;
     this.maxBatchLog = options.maxBatchLog ?? 1000;
@@ -197,6 +208,7 @@ export class ChangeLogPlugin {
     this.logger = options.logger ?? console;
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
+    this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
     this.maskedValues = extractMaskedValues(this.trackedFields);
   }
 
@@ -694,9 +706,7 @@ export class ChangeLogPlugin {
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
-
-        const originalDoc = (await model.findOne(filter).select(trackedPaths.join(' ')).lean()) as Record<
+        const originalDoc = (await model.findOne(filter).select(self.selectTrackedFields).lean()) as Record<
           string,
           unknown
         > | null;
@@ -705,9 +715,8 @@ export class ChangeLogPlugin {
 
         let isSoftDelete = false;
         if (self.softDelete && updateFields && originalDoc) {
-          const wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-          const willBeDeleted =
-            getValueByPath({ ...originalDoc, ...updateFields }, self.softDelete.field) === self.softDelete.value;
+          const wasDeleted = self.softDelete(originalDoc);
+          const willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
           if (!wasDeleted && willBeDeleted) {
             isSoftDelete = true;
           }
@@ -788,7 +797,6 @@ export class ChangeLogPlugin {
           userField: self.userField,
         });
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
         modelId = getValueByPath(doc.toObject(), self.modelKeyId) as string | number | Types.ObjectId;
 
         if (isNew) {
@@ -801,7 +809,7 @@ export class ChangeLogPlugin {
         } else {
           const originalDoc = (await (doc.constructor as Model<Document>)
             .findById(doc._id)
-            .select(trackedPaths.join(' '))
+            .select(self.selectTrackedFields)
             .lean()) as Record<string, unknown> | null;
 
           if (!originalDoc) {
@@ -810,8 +818,8 @@ export class ChangeLogPlugin {
 
           let isSoftDelete = false;
           if (self.softDelete) {
-            const wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-            const willBeDeleted = getValueByPath(doc.toObject(), self.softDelete.field) === self.softDelete.value;
+            const wasDeleted = self.softDelete(originalDoc);
+            const willBeDeleted = self.softDelete(doc.toObject());
             if (!wasDeleted && willBeDeleted) {
               isSoftDelete = true;
             }
@@ -961,8 +969,7 @@ export class ChangeLogPlugin {
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
-        const trackedPaths = [...new Set(self.trackedFields.map((f) => f.value.split('.')[0]))];
-        const originalDocs = (await model.find(filter).select(trackedPaths.join(' ')).lean()) as Record<
+        const originalDocs = (await model.find(filter).select(self.selectTrackedFields).lean()) as Record<
           string,
           unknown
         >[];
@@ -976,9 +983,8 @@ export class ChangeLogPlugin {
               const updateFields = self.extractUpdateFields(update, originalDoc);
               let isSoftDelete = false;
               if (self.softDelete && updateFields) {
-                const wasDeleted = getValueByPath(originalDoc, self.softDelete.field) === self.softDelete.value;
-                const willBeDeleted =
-                  getValueByPath({ ...originalDoc, ...updateFields }, self.softDelete.field) === self.softDelete.value;
+                const wasDeleted = self.softDelete(originalDoc);
+                const willBeDeleted = self.softDelete({ ...originalDoc, ...updateFields });
                 if (!wasDeleted && willBeDeleted) {
                   isSoftDelete = true;
                 }
