@@ -11,11 +11,12 @@ describe('mongoose-log-history plugin - Compression', () => {
     const orderSchema = new mongoose.Schema({
       status: String,
       data: String,
+      secret: String,
     });
 
     orderSchema.plugin(changeLoggingPlugin, {
       modelName: 'OrderCompression',
-      trackedFields: [{ value: 'status' }, { value: 'data' }],
+      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', maskedValue: '***' }],
       singleCollection: true,
       saveWholeDoc: true,
       compressDocs: true,
@@ -31,7 +32,7 @@ describe('mongoose-log-history plugin - Compression', () => {
   });
 
   it('stores updated_doc as Binary (compressed) and original_doc as null on create', async () => {
-    const order = await Order.create({ status: 'pending', data: 'x'.repeat(1000) });
+    const order = await Order.create({ status: 'pending', data: 'x'.repeat(1000), secret: 'secret' });
 
     const log = await LogHistory.findOne({ model_id: order._id, change_type: 'create' });
     expect(log.original_doc).toBeNull();
@@ -39,7 +40,7 @@ describe('mongoose-log-history plugin - Compression', () => {
   });
 
   it('automatically decompresses docs in getHistoriesById', async () => {
-    const order = await Order.create({ status: 'pending', data: 'foo' });
+    const order = await Order.create({ status: 'pending', data: 'foo', secret: 'secret' });
 
     const logs = await Order.getHistoriesById(order._id);
     expect(logs.length).toBe(1);
@@ -47,16 +48,18 @@ describe('mongoose-log-history plugin - Compression', () => {
     expect(typeof log.updated_doc).toBe('object');
     expect(log.updated_doc.status).toBe('pending');
     expect(log.updated_doc.data).toBe('foo');
+    expect(log.updated_doc.secret).toBe('***');
   });
 
   it('manual decompressObject works on Binary', async () => {
-    const order = await Order.create({ status: 'pending', data: 'bar' });
+    const order = await Order.create({ status: 'pending', data: 'bar', secret: 'secret' });
 
     const log = await LogHistory.findOne({ model_id: order._id, change_type: 'create' });
     const buf = log.updated_doc._bsontype === 'Binary' ? log.updated_doc.buffer : log.updated_doc;
     const decompressed = decompressObject(buf);
     expect(decompressed.status).toBe('pending');
     expect(decompressed.data).toBe('bar');
+    expect(decompressed.secret).toBe('***');
   });
 
   it('handles decompressObject with null/undefined gracefully', () => {
@@ -68,7 +71,7 @@ describe('mongoose-log-history plugin - Compression', () => {
     const schema = new mongoose.Schema({ status: String });
     schema.plugin(changeLoggingPlugin, {
       modelName: 'OrderNoWholeDoc',
-      trackedFields: [{ value: 'status' }, { value: 'data' }],
+      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', maskedValue: '***' }],
       singleCollection: true,
       saveWholeDoc: false,
       compressDocs: true,
@@ -85,10 +88,11 @@ describe('mongoose-log-history plugin - Compression', () => {
   });
 
   it('compresses on update as well as create', async () => {
-    const order = await Order.create({ status: 'pending', data: 'foo' });
+    const order = await Order.create({ status: 'pending', data: 'foo', secret: 'secret' });
     await LogHistory.deleteMany({});
     order.status = 'done';
     order.data = 'bar';
+    order.secret = 'new_secret';
     await order.save();
 
     const log = await LogHistory.findOne({ model_id: order._id, change_type: 'update' });
@@ -101,5 +105,7 @@ describe('mongoose-log-history plugin - Compression', () => {
     expect(updated.status).toBe('done');
     expect(orig.data).toBe('foo');
     expect(updated.data).toBe('bar');
+    expect(orig.secret).toBe('***');
+    expect(updated.secret).toBe('***');
   });
 });
