@@ -1,0 +1,35 @@
+name: Publish @palmetto/mongoose-log-history package
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 24.2.0
+        uses: actions/setup-node@v5
+        with:
+          cache: yarn
+          node-version: 24.2.0
+          scope: '@palmetto'
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Publish to NPM
+        run: |
+          npm config set npmAuthToken "${{ secrets.NPM_TOKEN }}"
+          npm publish --tolerate-republish
+      - name: Publish to GitHub
+        run: |
+          yarn config set npmPublishRegistry "https://npm.pkg.github.com"
+          yarn config set npmAuthToken "${{ secrets.GITHUB_TOKEN }}"
+          npm publish --tolerate-republish

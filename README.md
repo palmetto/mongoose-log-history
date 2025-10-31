@@ -1,5 +1,7 @@
 # mongoose-log-history
 
+Note: this is a local build of the mongoose-log-history package for palmetto.com
+
 [![CI](https://github.com/granitebps/mongoose-log-history/actions/workflows/ci.yml/badge.svg)](https://github.com/granitebps/mongoose-log-history/actions)
 [![npm version](https://img.shields.io/npm/v/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
