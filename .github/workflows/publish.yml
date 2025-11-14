@@ -5,6 +5,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write # Required for OIDC
 
 jobs:
   publish:
@@ -26,7 +27,6 @@ jobs:
       - name: Publish to NPM
         run: |
           npm config set @palmetto:registry=https://registry.npmjs.org/
-          npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
           npm publish --access=public
       - name: Publish to GitHub
         run: |
