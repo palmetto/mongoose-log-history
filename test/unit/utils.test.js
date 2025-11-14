@@ -203,5 +203,14 @@ describe('utils', () => {
       obj.self = obj;
       expect(typeof valueToString(obj)).toBe('string');
     });
+    it('masks values when a string mask is provided', () => {
+      expect(valueToString('sensitive', '***')).toBe('***');
+      expect(valueToString(12345, '###')).toBe('###');
+    });
+    it('masks values when a function mask is provided', () => {
+      const maskFn = (val) => 'X'.repeat(String(val).length);
+      expect(valueToString('secret', maskFn)).toBe('XXXXXX');
+      expect(valueToString(12345, maskFn)).toBe('XXXXX');
+    });
   });
 });
