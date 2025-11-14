@@ -30,10 +30,7 @@
     "prepare": "husky",
     "test": "jest"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/granitebps/mongoose-log-history.git"
-  },
+  "repository": "github:palmetto/mongoose-log-history",
   "keywords": [
     "mongoose",
     "plugin",
