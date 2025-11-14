@@ -966,19 +966,12 @@ export class ChangeLogPlugin {
           unknown
         >[];
 
-        self.logger.debug(
-          `preUpdateManyHook found ${originalDocs.length} documents to process for model: ${self.modelName}.`
-        );
-
         await self.batchLogHistory(
           originalDocs,
           async (batch: Record<string, unknown>[]) => {
             const logEntryParams: BatchLogEntryParams[] = [];
             for (const originalDoc of batch) {
               if (!originalDoc) {
-                self.logger.debug(
-                  `preUpdateManyHook skipping null or undefined document in batch for model: ${self.modelName}.`
-                );
                 continue;
               }
               const updateFields = self.extractUpdateFields(update, originalDoc);
@@ -1002,12 +995,6 @@ export class ChangeLogPlugin {
                 user,
               });
             }
-
-            self.logger.debug(
-              `preUpdateManyHook sending ${logEntryParams.length} log entries for model: ${self.modelName}.`
-            );
-
-            self.logger.debug(`preUpdateManyHook log entry params: ${JSON.stringify(logEntryParams)}`);
 
             await self.saveLogHistoryBatch(logEntryParams);
           },
