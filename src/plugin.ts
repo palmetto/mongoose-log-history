@@ -11,20 +11,12 @@ import {
   FieldLog,
   ChangeType,
   BuildLogEntryParams,
-  MaskedValues,
+  MaskedFields,
 } from './types';
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
 import { compressObject, decompressObject } from './compression';
-import {
-  getValueByPath,
-  arrayToKeyMap,
-  isEqual,
-  validatePluginOptions,
-  deepClone,
-  extractMaskedValues,
-  maskLogs,
-} from './utils';
+import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClone, extractMaskedFields } from './utils';
 
 /**
  * Build a log entry object compatible with the plugin's log schema.
@@ -79,7 +71,7 @@ export function buildLogEntry(
   context?: Record<string, unknown>,
   saveWholeDoc?: boolean,
   compressDocs?: boolean,
-  maskedValues?: MaskedValues
+  maskedFields?: MaskedFields
 ): LogHistoryEntry;
 export function buildLogEntry(params: BuildLogEntryParams): LogHistoryEntry;
 export function buildLogEntry(
@@ -93,7 +85,7 @@ export function buildLogEntry(
   context?: Record<string, unknown>,
   saveWholeDoc?: boolean,
   compressDocs?: boolean,
-  maskedValues?: MaskedValues
+  maskedFields?: MaskedFields
 ): LogHistoryEntry {
   let params: BuildLogEntryParams;
 
@@ -113,7 +105,7 @@ export function buildLogEntry(
       context,
       saveWholeDoc: saveWholeDoc || false,
       compressDocs: compressDocs || false,
-      maskedValues: maskedValues || undefined,
+      maskedFields: maskedFields || undefined,
     };
   }
 
@@ -128,14 +120,14 @@ export function buildLogEntry(
     context: contextData = null,
     saveWholeDoc: saveWholeDocument = false,
     compressDocs: compressDocuments = false,
-    maskedValues: masks,
+    maskedFields: masks,
   } = params;
 
   const entry: LogHistoryEntry = {
     model: modelName,
     model_id,
     change_type: changeType,
-    logs: maskLogs(fieldLogs, masks),
+    logs: fieldLogs,
     created_by: createdBy,
     is_deleted: false,
     created_at: new Date(),
@@ -181,7 +173,7 @@ export class ChangeLogPlugin {
   public readonly logger: Logger;
   public readonly userField: string;
   public readonly compressDocs: boolean;
-  public readonly maskedValues?: MaskedValues;
+  public readonly maskedFields?: MaskedFields;
 
   constructor(options: PluginOptions & { modelName: string }) {
     validatePluginOptions(options);
@@ -209,7 +201,7 @@ export class ChangeLogPlugin {
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
-    this.maskedValues = extractMaskedValues(this.trackedFields);
+    this.maskedFields = extractMaskedFields(this.trackedFields);
   }
 
   /**
@@ -561,7 +553,7 @@ export class ChangeLogPlugin {
         context,
         saveWholeDoc: this.saveWholeDoc,
         compressDocs: this.compressDocs,
-        maskedValues: this.maskedValues,
+        maskedFields: this.maskedFields,
       });
 
       await LogHistory.create(logEntry);
@@ -614,7 +606,7 @@ export class ChangeLogPlugin {
           context,
           saveWholeDoc: this.saveWholeDoc,
           compressDocs: this.compressDocs,
-          maskedValues: this.maskedValues,
+          maskedFields: this.maskedFields,
         });
 
         return {
@@ -979,7 +971,9 @@ export class ChangeLogPlugin {
           async (batch: Record<string, unknown>[]) => {
             const logEntryParams: BatchLogEntryParams[] = [];
             for (const originalDoc of batch) {
-              if (!originalDoc) continue;
+              if (!originalDoc) {
+                continue;
+              }
               const updateFields = self.extractUpdateFields(update, originalDoc);
               let isSoftDelete = false;
               if (self.softDelete && updateFields) {
@@ -1001,6 +995,7 @@ export class ChangeLogPlugin {
                 user,
               });
             }
+
             await self.saveLogHistoryBatch(logEntryParams);
           },
           'updateMany'

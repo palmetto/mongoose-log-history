@@ -16,7 +16,7 @@ describe('mongoose-log-history plugin - Compression', () => {
 
     orderSchema.plugin(changeLoggingPlugin, {
       modelName: 'OrderCompression',
-      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', maskedValue: '***' }],
+      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', mask: '***' }],
       singleCollection: true,
       saveWholeDoc: true,
       compressDocs: true,
@@ -71,7 +71,7 @@ describe('mongoose-log-history plugin - Compression', () => {
     const schema = new mongoose.Schema({ status: String });
     schema.plugin(changeLoggingPlugin, {
       modelName: 'OrderNoWholeDoc',
-      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', maskedValue: '***' }],
+      trackedFields: [{ value: 'status' }, { value: 'data' }, { value: 'secret', mask: '***' }],
       singleCollection: true,
       saveWholeDoc: false,
       compressDocs: true,

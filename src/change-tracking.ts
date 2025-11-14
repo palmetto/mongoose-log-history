@@ -94,8 +94,8 @@ function processGenericFieldChanges(
   const beforeExists = exists(beforeValue);
   const afterExists = exists(afterValue);
 
-  const rawBefore = valueToString(beforeValue);
-  const rawAfter = valueToString(afterValue);
+  const rawBefore = valueToString(beforeValue, field.mask);
+  const rawAfter = valueToString(afterValue, field.mask);
 
   const beforeStr: string | null | undefined = rawBefore;
   const afterStr: string | null | undefined = rawAfter;
@@ -175,7 +175,7 @@ function processSimpleArrayChanges(
   const context = extractLogContext(field.contextFields, originalDoc, updatedDoc, beforeItem, afterItem);
 
   for (const item of added) {
-    const v = valueToString(item);
+    const v = valueToString(item, field.mask);
     log.push({
       field_name: fieldName,
       from_value: null,
@@ -186,7 +186,7 @@ function processSimpleArrayChanges(
   }
 
   for (const item of removed) {
-    const v = valueToString(item);
+    const v = valueToString(item, field.mask);
     log.push({
       field_name: fieldName,
       from_value: v === null || v === undefined ? null : v,
@@ -240,8 +240,8 @@ function processCustomKeyArrayChanges(
     const beforeExists = exists(beforeItem);
     const afterExists = exists(afterItem);
 
-    const fvRaw = beforeItem && field.valueField ? valueToString(beforeItem[field.valueField]) : undefined;
-    const tvRaw = afterItem && field.valueField ? valueToString(afterItem[field.valueField]) : undefined;
+    const fvRaw = beforeItem && field.valueField ? valueToString(beforeItem[field.valueField], field.mask) : undefined;
+    const tvRaw = afterItem && field.valueField ? valueToString(afterItem[field.valueField], field.mask) : undefined;
     const fromValue: string | null = fvRaw === null || fvRaw === undefined ? null : fvRaw;
     const toValue: string | null = tvRaw === null || tvRaw === undefined ? null : tvRaw;
 

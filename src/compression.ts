@@ -1,19 +1,12 @@
 import { gzipSync, gunzipSync } from 'zlib';
-
-/**
- * MongoDB Binary type interface for handling compressed data.
- */
-interface MongoBinary {
-  _bsontype: 'Binary';
-  buffer: Buffer;
-}
+import { MongoBinary } from './types';
 
 /**
  * Type guard to check if a value is a MongoDB Binary object.
  * @param value - The value to check.
  * @returns True if the value is a MongoDB Binary object.
  */
-function isMongoBinary(value: unknown): value is MongoBinary {
+export function isMongoBinary(value: unknown): value is MongoBinary {
   return (
     typeof value === 'object' &&
     value !== null &&

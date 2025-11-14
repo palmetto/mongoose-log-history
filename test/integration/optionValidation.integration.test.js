@@ -160,27 +160,27 @@ describe('mongoose-log-history plugin - Option Validation', () => {
     }).toThrow(/modelKeyId/);
   });
 
-  it('throws if maskedValue config is invalid', () => {
+  it('throws if mask config is invalid', () => {
     const schema = new mongoose.Schema({ status: String });
     expect(() => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
-        trackedFields: [{ value: 'status', maskedValue: true }],
+        trackedFields: [{ value: 'status', mask: true }],
       });
-    }).toThrow(/masked/);
+    }).toThrow(/mask/);
 
     expect(() => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
-        trackedFields: [{ value: 'status', maskedValue: new Date() }],
+        trackedFields: [{ value: 'status', mask: new Date() }],
       });
-    }).toThrow(/masked/);
+    }).toThrow(/mask/);
 
     expect(() => {
       schema.plugin(changeLoggingPlugin, {
         modelName: 'Order',
-        trackedFields: [{ value: 'status', maskedValue: { invalid: true } }],
+        trackedFields: [{ value: 'status', mask: { invalid: true } }],
       });
-    }).toThrow(/masked/);
+    }).toThrow(/mask/);
   });
 });

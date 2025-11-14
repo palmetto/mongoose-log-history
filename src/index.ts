@@ -112,6 +112,8 @@ export type {
   BatchLogEntryParams,
   ExtractUserParams,
   ArrayDiff,
+  MaskedFields,
+  MongoBinary,
 } from './types';
 export type { PruneOptions } from './prune';
 
@@ -119,7 +121,7 @@ import { changeLoggingPlugin, buildLogEntry } from './plugin';
 import { getTrackedChanges } from './change-tracking';
 import { getLogHistoryModel } from './schema';
 import { pruneLogHistory } from './prune';
-import { decompressObject } from './compression';
+import { decompressObject, isMongoBinary } from './compression';
 
 /**
  * Default export for CommonJS compatibility
@@ -131,4 +133,5 @@ export default {
   getLogHistoryModel,
   pruneLogHistory,
   decompressObject,
+  isMongoBinary,
 };
