@@ -331,3 +331,11 @@ export interface ArrayDiff<T = unknown> {
   added: T[];
   removed: T[];
 }
+
+/**
+ * MongoDB Binary type interface for handling compressed data.
+ */
+export interface MongoBinary {
+  _bsontype: 'Binary';
+  buffer: Buffer;
+}
