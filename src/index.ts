@@ -76,7 +76,7 @@ export { changeLoggingPlugin, buildLogEntry, ChangeLogPlugin } from './plugin';
 export { getTrackedChanges, extractLogContext } from './change-tracking';
 export { getLogHistoryModel, logSchema, logHistorySchema } from './schema';
 export { pruneLogHistory } from './prune';
-export { decompressObject, compressObject } from './compression';
+export { decompressObject, compressObject, isMongoBinary } from './compression';
 export {
   isDate,
   isObject,
