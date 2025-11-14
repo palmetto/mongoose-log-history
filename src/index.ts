@@ -112,6 +112,7 @@ export type {
   BatchLogEntryParams,
   ExtractUserParams,
   ArrayDiff,
+  MaskedFields,
 } from './types';
 export type { PruneOptions } from './prune';
 

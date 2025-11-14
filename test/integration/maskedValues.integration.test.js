@@ -19,8 +19,8 @@ describe('mongoose-log-history plugin - Masked Values', () => {
     orderSchema.plugin(changeLoggingPlugin, {
       modelName: 'Order',
       trackedFields: [
-        { value: 'name', maskedValue: '***' },
-        { value: 'subdoc.secret', maskedValue: (s) => '@'.repeat(s.length) },
+        { value: 'name', mask: '***' },
+        { value: 'subdoc.secret', mask: (s) => '@'.repeat(s.length) },
       ],
       singleCollection: true,
       saveWholeDoc: true,

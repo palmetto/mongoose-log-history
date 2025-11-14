@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { ArrayDiff, FieldLog, MaskedValues, PluginOptions, TrackedField } from './types';
+import { ArrayDiff, Mask, MaskedFields, PluginOptions, TrackedField } from './types';
 
 /**
  * Time unit mapping for parsing human-readable time strings.
@@ -227,16 +227,27 @@ export function arrayToKeyMap<T extends Record<string, unknown>>(
  * @param val - The value to convert.
  * @returns String representation of the value.
  */
-export function valueToString(val: unknown): string | null | undefined {
+export function valueToString(val: unknown, mask?: Mask): string | null | undefined {
   if (val === null || val === undefined) {
     return val as null | undefined;
   }
+
+  if (mask !== undefined) {
+    if (typeof mask === 'function') {
+      return mask(val);
+    } else {
+      return mask;
+    }
+  }
+
   if (val instanceof Date) {
     return val.toISOString();
   }
+
   if (typeof val === 'string' && isIsoDateString(val)) {
     return val;
   }
+
   if (typeof val === 'object') {
     try {
       return JSON.stringify(val);
@@ -312,9 +323,9 @@ export function validateTrackedField(field: TrackedField, path: string): void {
     }
   }
 
-  if (field.maskedValue !== undefined) {
-    if (typeof field.maskedValue !== 'string' && typeof field.maskedValue !== 'function') {
-      throw new Error(`[mongoose-log-history] "maskedValue" in ${path}.${field.value} must be a string or a function.`);
+  if (field.mask !== undefined) {
+    if (typeof field.mask !== 'string' && typeof field.mask !== 'function') {
+      throw new Error(`[mongoose-log-history] "mask" in ${path}.${field.value} must be a string or a function.`);
     }
   }
 
@@ -394,11 +405,11 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
 /**
  * Deep clone an object to prevent mutations.
  * @param obj - The object to clone.
- * @param maskedValues - Optional mapping of field paths to masked values or functions.
+ * @param maskedFields - Optional mapping of field paths to masked values or functions.
  * @param parentPath - The parent path for the current object (used for masking).
  * @returns A deep copy of the object.
  */
-export function deepClone<T>(obj: T, maskedValues?: MaskedValues, parentPath?: string): T {
+export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: string): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
@@ -412,27 +423,27 @@ export function deepClone<T>(obj: T, maskedValues?: MaskedValues, parentPath?: s
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => deepClone(item, maskedValues, parentPath)) as T;
+    return obj.map((item) => deepClone(item, maskedFields, parentPath)) as T;
   }
 
   if (isObject(obj)) {
     const cloned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = parentPath ? `${parentPath}.${key}` : key;
-      if (maskedValues) {
-        const maskedValue = maskedValues[fullKey];
-        if (maskedValue !== undefined) {
-          if (typeof maskedValue === 'function') {
-            cloned[key] = maskedValue(value);
+      if (maskedFields) {
+        const mask = maskedFields[fullKey];
+        if (mask !== undefined) {
+          if (typeof mask === 'function') {
+            cloned[key] = mask(value);
           } else {
-            cloned[key] = maskedValue;
+            cloned[key] = mask;
           }
 
           continue;
         }
       }
 
-      cloned[key] = deepClone(value, maskedValues, fullKey);
+      cloned[key] = deepClone(value, maskedFields, fullKey);
     }
     return cloned as T;
   }
@@ -498,19 +509,19 @@ export function parseHumanTime(str: string | Date | number | null | undefined): 
  * @param trackedFields The array of tracked fields from plugin options.
  * @returns A mapping of field paths to their masked values or masking functions or null if there are no masked fields.
  */
-export function extractMaskedValues(trackedFields: TrackedField[]): MaskedValues | undefined {
-  const maskedValues: MaskedValues = {};
+export function extractMaskedFields(trackedFields: TrackedField[]): MaskedFields | undefined {
+  const maskedFields: MaskedFields = {};
 
   function extract(fields: TrackedField[], parentPath: string): void {
     for (const field of fields) {
       const fieldPath = parentPath ? `${parentPath}.${field.value}` : field.value;
 
-      if (field.maskedValue !== undefined) {
-        if (typeof field.maskedValue !== 'string' && typeof field.maskedValue !== 'function') {
-          throw new Error(`[mongoose-log-history] "maskedValue" in ${fieldPath} must be a string or a function.`);
+      if (field.mask !== undefined) {
+        if (typeof field.mask !== 'string' && typeof field.mask !== 'function') {
+          throw new Error(`[mongoose-log-history] "mask" in ${fieldPath} must be a string or a function.`);
         }
 
-        maskedValues[fieldPath] = field.maskedValue;
+        maskedFields[fieldPath] = field.mask;
       }
 
       if (field.trackedFields) {
@@ -520,36 +531,5 @@ export function extractMaskedValues(trackedFields: TrackedField[]): MaskedValues
   }
 
   extract(trackedFields, '');
-  return Object.keys(maskedValues).length > 0 ? maskedValues : undefined;
-}
-
-export function maskLogs(logs: FieldLog[], maskedValues?: MaskedValues): FieldLog[] {
-  if (!maskedValues) {
-    return logs;
-  }
-
-  return logs.map((log) => {
-    const mask = maskedValues[log.field_name];
-    if (!mask) {
-      return log;
-    }
-
-    if (log.from_value) {
-      if (typeof mask === 'function') {
-        log.from_value = mask(log.from_value);
-      } else {
-        log.from_value = mask;
-      }
-    }
-
-    if (log.to_value) {
-      if (typeof mask === 'function') {
-        log.to_value = mask(log.to_value);
-      } else {
-        log.to_value = mask;
-      }
-    }
-
-    return log;
-  });
+  return Object.keys(maskedFields).length > 0 ? maskedFields : undefined;
 }

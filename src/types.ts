@@ -22,6 +22,7 @@ export type ArrayType = 'simple' | 'custom-key';
 export interface Logger {
   error(error: Error | unknown, message?: string): void;
   warn(message: string): void;
+  debug(message: string): void;
 }
 
 /**
@@ -75,7 +76,7 @@ export interface TrackedField {
    * When defined, the value for this field field is masked in the logs.
    * This is useful for sensitive information that should not be stored in logs.
    */
-  maskedValue?: string | ((value: unknown) => string | null | undefined);
+  mask?: Mask;
 
   /** Additional context fields to include in logs for this specific field */
   contextFields?: ContextFields;
@@ -266,9 +267,14 @@ export interface LogHistoryDocument extends Omit<Document, 'model'> {
 export interface LogHistoryModel extends Model<LogHistoryDocument> {}
 
 /**
+ * A mask can be a static string or a function that accepts the original value and returns a masked string.
+ */
+export type Mask = string | ((value: unknown) => string | null | undefined);
+
+/**
  * A mapping of field paths to their masked values or masking functions.
  */
-export type MaskedValues = Record<string, string | ((value: unknown) => string | null | undefined)>;
+export type MaskedFields = Record<string, Mask>;
 
 /**
  * Parameters for building a log entry.
@@ -284,7 +290,7 @@ export interface BuildLogEntryParams {
   context?: Record<string, unknown>;
   saveWholeDoc?: boolean;
   compressDocs?: boolean;
-  maskedValues?: MaskedValues;
+  maskedFields?: MaskedFields;
 }
 
 /**
