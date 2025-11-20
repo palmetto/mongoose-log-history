@@ -275,23 +275,21 @@ By default, log histories are saved into a mongodb collection. You can override 
 
 **Example:**
 
-Create a class that implements `LogHistorySaver`. This example sends the histories to a queue, using the `translateToQueueMessage` function to
+Create a function that implements `LogHistorySaver`. This example sends the histories to a queue, using a `translateToQueueMessage` function to
 transform the LogHistoryEntry into the appropriate model for the queue.
 
 ```ts
-export class QueueHistorySaver implements LogHistorySaver {
-  async saveLogHistories(plugin: ChangeLogPlugin, histories: LogHistoryEntry[]): Promise<void> {
-    const queueName = getQueueNameFromModel(plugin.modelName);
+function saveLogHistoriesToQueue(plugin: ChangeLogPlugin, histories: LogHistoryEntry[]): Promise<void> {
+  const queueName = getQueueNameFromModel(plugin.modelName);
 
-    await publisher.publish(histories.map(translateToQueueMessage));
-  }
+  await publisher.publish(histories.map(translateToQueueMessage));
 }
 ```
 
-Then, pass this class into the plugin constructor.
+Then, pass this function into the plugin constructor.
 
 ```js
-logHistorySaver: new QueueHistorySaver();
+logHistorySaver: saveLogHistoriesToQueue;
 ```
 
 ---
