@@ -1,10 +1,9 @@
 import { ChangeLogPlugin } from './plugin';
-import { getLogHistoryModel } from './schema';
 import { LogHistoryEntry, LogHistorySaver } from './types';
 
 export class DefaultLogHistorySaver implements LogHistorySaver {
   async saveLogHistories(plugin: ChangeLogPlugin, histories: LogHistoryEntry[]): Promise<void> {
-    const LogHistory = getLogHistoryModel(plugin.modelName, plugin.singleCollection);
+    const LogHistory = plugin.getLogHistoryModelPlugin();
 
     if (histories.length > 1) {
       const bulkOperations = histories.map((logEntry) => {
