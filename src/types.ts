@@ -169,6 +169,11 @@ export interface PluginOptions {
    * Defaults to false.
    */
   compressDocs?: boolean;
+
+  /**
+   * Custom log history saver implementation.  If not provided, uses the default saver that writes to MongoDB.
+   */
+  logHistorySaver?: LogHistorySaver;
 }
 
 /**
@@ -338,4 +343,29 @@ export interface ArrayDiff<T = unknown> {
 export interface MongoBinary {
   _bsontype: 'Binary';
   buffer: Buffer;
+}
+
+export interface LogHistoryPlugin {
+  readonly modelName: string;
+  readonly modelKeyId: string;
+  readonly trackedFields: TrackedField[];
+  readonly contextFields: string[];
+  readonly singleCollection: boolean;
+  readonly saveWholeDoc: boolean;
+  readonly maxBatchLog: number;
+  readonly batchSize: number;
+  readonly logger: Logger;
+  readonly userField: string;
+  readonly compressDocs: boolean;
+  readonly maskedFields?: MaskedFields;
+
+  /**
+   * Get the log history model for the current plugin instance.
+   * @returns The log history model for this plugin configuration.
+   */
+  getLogHistoryModelPlugin(): LogHistoryModel;
+}
+
+export interface LogHistorySaver {
+  saveLogHistories(plugin: LogHistoryPlugin, histories: LogHistoryEntry[]): Promise<void> | void;
 }

@@ -70,15 +70,15 @@ describe('mongoose-log-history plugin - Error Handling', () => {
   it('does not block delete if logging fails', async () => {
     const order = await Order.create({ status: 'pending' });
 
-    const origBulkWrite = LogHistory.bulkWrite;
-    LogHistory.bulkWrite = () => {
+    const origCreate = LogHistory.create;
+    LogHistory.create = () => {
       throw new Error('Simulated log error');
     };
 
     await expect(Order.deleteOne({ _id: order._id })).resolves.toBeDefined();
     expect(errorSpy).toHaveBeenCalled();
 
-    LogHistory.bulkWrite = origBulkWrite;
+    LogHistory.create = origCreate;
   });
 
   it('does not block batch operations if logging fails', async () => {
