@@ -114,6 +114,8 @@ export type {
   ArrayDiff,
   MaskedFields,
   MongoBinary,
+  LogHistoryPlugin,
+  LogHistorySaver,
 } from './types';
 export type { PruneOptions } from './prune';
 

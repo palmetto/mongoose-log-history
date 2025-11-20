@@ -12,11 +12,14 @@ import {
   ChangeType,
   BuildLogEntryParams,
   MaskedFields,
+  LogHistorySaver,
+  LogHistoryPlugin,
 } from './types';
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
 import { compressObject, decompressObject } from './compression';
 import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClone, extractMaskedFields } from './utils';
+import { DefaultLogHistorySaver } from './saver';
 
 /**
  * Build a log entry object compatible with the plugin's log schema.
@@ -159,7 +162,7 @@ export function buildLogEntry(
  * This class encapsulates all the logic for tracking document changes
  * and provides a clean interface for the Mongoose plugin system.
  */
-export class ChangeLogPlugin {
+export class ChangeLogPlugin implements LogHistoryPlugin {
   public readonly modelName: string;
   public readonly modelKeyId: string;
   public readonly trackedFields: TrackedField[];
@@ -174,6 +177,7 @@ export class ChangeLogPlugin {
   public readonly userField: string;
   public readonly compressDocs: boolean;
   public readonly maskedFields?: MaskedFields;
+  public readonly logHistorySaver: LogHistorySaver;
 
   constructor(options: PluginOptions & { modelName: string }) {
     validatePluginOptions(options);
@@ -202,6 +206,7 @@ export class ChangeLogPlugin {
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
     this.maskedFields = extractMaskedFields(this.trackedFields);
+    this.logHistorySaver = options.logHistorySaver ?? new DefaultLogHistorySaver();
   }
 
   /**
@@ -541,7 +546,6 @@ export class ChangeLogPlugin {
     }
 
     try {
-      const LogHistory = this.getLogHistoryModelPlugin();
       const logEntry = buildLogEntry({
         model_id: modelId,
         model_name: this.modelName,
@@ -556,7 +560,7 @@ export class ChangeLogPlugin {
         maskedFields: this.maskedFields,
       });
 
-      await LogHistory.create(logEntry);
+      await this.logHistorySaver.saveLogHistories(this, [logEntry]);
     } catch (err) {
       this.logger.error(
         err as Error,
@@ -572,7 +576,7 @@ export class ChangeLogPlugin {
    * @param logEntriesData - Array of log entry parameter objects.
    */
   private async saveLogHistoryBatch(logEntriesData: BatchLogEntryParams[]): Promise<void> {
-    const bulkOperations = logEntriesData
+    const histories = logEntriesData
       .map((params) => {
         let changes: FieldLog[] = [];
         let context: Record<string, unknown> | undefined;
@@ -609,21 +613,16 @@ export class ChangeLogPlugin {
           maskedFields: this.maskedFields,
         });
 
-        return {
-          insertOne: {
-            document: logEntry,
-          },
-        };
+        return logEntry;
       })
       .filter((op): op is NonNullable<typeof op> => op !== null);
 
-    if (!bulkOperations.length) {
+    if (!histories.length) {
       return;
     }
 
     try {
-      const LogHistory = this.getLogHistoryModelPlugin();
-      await LogHistory.bulkWrite(bulkOperations, { ordered: false });
+      await this.logHistorySaver.saveLogHistories(this, histories);
     } catch (err) {
       this.logger.error(
         err as Error,

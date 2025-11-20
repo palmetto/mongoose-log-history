@@ -196,6 +196,7 @@ const Order = mongoose.model<IOrder>('Order', orderSchema);
 | `trackedFields`    | array           | `[]`         | Array of field configs to track (see below)                                                                                                            |
 | `userField`        | string          | `created_by` | The field in the document to extract user info from (dot notation supported). Value can be any type (object, string, ID, etc.).                        |
 | `compressDocs`     | boolean         | `false`      | Compress `original_doc` and `updated_doc` using gzip.                                                                                                  |
+| `logHistorySaver`  | class           |              | Provide your own implementation to save log histories.                                                                                                 |
 
 ---
 
@@ -265,6 +266,33 @@ You always receive plain JavaScript objects, regardless of whether compression i
 > const { decompressObject } = require('mongoose-log-history');
 > const doc = decompressObject(logEntry.original_doc);
 > ```
+
+---
+
+### Log history saving override
+
+By default, log histories are saved into a mongodb collection. You can override this behavior by providing an override class to the plugin.
+
+**Example:**
+
+Create a class that implements `LogHistorySaver`. This example sends the histories to a queue, using the `translateToQueueMessage` function to
+transform the LogHistoryEntry into the appropriate model for the queue.
+
+```ts
+export class QueueHistorySaver implements LogHistorySaver {
+  async saveLogHistories(plugin: ChangeLogPlugin, histories: LogHistoryEntry[]): Promise<void> {
+    const queueName = getQueueNameFromModel(plugin.modelName);
+
+    await publisher.publish(histories.map(translateToQueueMessage));
+  }
+}
+```
+
+Then, pass this class into the plugin constructor.
+
+```js
+logHistorySaver: new QueueHistorySaver();
+```
 
 ---
 
