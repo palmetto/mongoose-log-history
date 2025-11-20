@@ -366,6 +366,4 @@ export interface LogHistoryPlugin {
   getLogHistoryModelPlugin(): LogHistoryModel;
 }
 
-export interface LogHistorySaver {
-  saveLogHistories(plugin: LogHistoryPlugin, histories: LogHistoryEntry[]): Promise<void> | void;
-}
+export type LogHistorySaver = (plugin: LogHistoryPlugin, histories: LogHistoryEntry[]) => Promise<void> | void;

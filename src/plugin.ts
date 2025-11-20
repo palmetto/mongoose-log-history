@@ -19,7 +19,7 @@ import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
 import { compressObject, decompressObject } from './compression';
 import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClone, extractMaskedFields } from './utils';
-import { DefaultLogHistorySaver } from './saver';
+import { saveLogHistories } from './saver';
 
 /**
  * Build a log entry object compatible with the plugin's log schema.
@@ -206,7 +206,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
     this.maskedFields = extractMaskedFields(this.trackedFields);
-    this.logHistorySaver = options.logHistorySaver ?? new DefaultLogHistorySaver();
+    this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
   }
 
   /**
@@ -560,7 +560,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         maskedFields: this.maskedFields,
       });
 
-      await this.logHistorySaver.saveLogHistories(this, [logEntry]);
+      await this.logHistorySaver(this, [logEntry]);
     } catch (err) {
       this.logger.error(
         err as Error,
@@ -622,7 +622,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     }
 
     try {
-      await this.logHistorySaver.saveLogHistories(this, histories);
+      await this.logHistorySaver(this, histories);
     } catch (err) {
       this.logger.error(
         err as Error,
