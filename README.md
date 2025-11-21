@@ -2,10 +2,10 @@
 
 Note: this is a local build of the mongoose-log-history package for palmetto.com
 
-[![CI](https://github.com/granitebps/mongoose-log-history/actions/workflows/ci.yml/badge.svg)](https://github.com/granitebps/mongoose-log-history/actions)
-[![npm version](https://img.shields.io/npm/v/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
+[![CI](https://github.com/palmetto/mongoose-log-history/actions/workflows/publish.yml/badge.svg)](https://github.com/palmetto/mongoose-log-history/actions)
+[![npm version](https://img.shields.io/npm/v/@palmetto/mongoose-log-history.svg)](https://www.npmjs.com/package/@palmetto/mongoose-log-history)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![npm downloads](https://img.shields.io/npm/dm/mongoose-log-history.svg)](https://www.npmjs.com/package/mongoose-log-history)
+[![npm downloads](https://img.shields.io/npm/dm/@palmetto/mongoose-log-history.svg)](https://www.npmjs.com/package/@palmetto/mongoose-log-history)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat)](https://prettier.io/)
 
 > **Requirements**

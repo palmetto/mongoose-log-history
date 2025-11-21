@@ -22,7 +22,6 @@ export type ArrayType = 'simple' | 'custom-key';
 export interface Logger {
   error(error: Error | unknown, message?: string): void;
   warn(message: string): void;
-  debug(message: string): void;
 }
 
 /**
