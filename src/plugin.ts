@@ -1031,32 +1031,34 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
 
   const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName });
 
-  (schema.statics as Record<string, unknown>).getHistoriesById = async function (
-    modelId: string | number | Types.ObjectId,
-    fields?: unknown,
-    findOptions?: unknown
-  ): Promise<LogHistoryEntry[]> {
-    const historyModel: LogHistoryModel = pluginInstance.getLogHistoryModelPlugin();
-    const query: Record<string, unknown> = {
-      model_id: isValidObjectId(modelId) ? new Types.ObjectId(modelId) : modelId,
-      is_deleted: false,
-    };
-    if (pluginInstance.singleCollection) query.model = pluginInstance.modelName;
+  if (options.logHistorySaver === undefined) {
+    (schema.statics as Record<string, unknown>).getHistoriesById = async function (
+      modelId: string | number | Types.ObjectId,
+      fields?: unknown,
+      findOptions?: unknown
+    ): Promise<LogHistoryEntry[]> {
+      const historyModel: LogHistoryModel = pluginInstance.getLogHistoryModelPlugin();
+      const query: Record<string, unknown> = {
+        model_id: isValidObjectId(modelId) ? new Types.ObjectId(modelId) : modelId,
+        is_deleted: false,
+      };
+      if (pluginInstance.singleCollection) query.model = pluginInstance.modelName;
 
-    const logs = (await historyModel.find(query, fields as any, findOptions as any).lean()) as LogHistoryEntry[];
+      const logs = (await historyModel.find(query, fields as any, findOptions as any).lean()) as LogHistoryEntry[];
 
-    if (pluginInstance.compressDocs) {
-      for (const log of logs) {
-        if (log?.original_doc) {
-          log.original_doc = decompressObject(log.original_doc as any);
-        }
-        if (log?.updated_doc) {
-          log.updated_doc = decompressObject(log.updated_doc as any);
+      if (pluginInstance.compressDocs) {
+        for (const log of logs) {
+          if (log?.original_doc) {
+            log.original_doc = decompressObject(log.original_doc as any);
+          }
+          if (log?.updated_doc) {
+            log.updated_doc = decompressObject(log.updated_doc as any);
+          }
         }
       }
-    }
-    return logs;
-  };
+      return logs;
+    };
+  }
 
   const preUpdateHook = pluginInstance.createPreUpdateHook();
   const preUpdateManyHook = pluginInstance.createPreUpdateManyHook();
