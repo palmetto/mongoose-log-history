@@ -367,8 +367,12 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
   }
 
   if (options.logger) {
-    if (typeof options.logger.error !== 'function' || typeof options.logger.warn !== 'function') {
-      throw new Error('[mongoose-log-history] "logger" must have .error and .warn methods.');
+    if (
+      typeof options.logger.error !== 'function' ||
+      typeof options.logger.warn !== 'function' ||
+      (options.logger !== undefined && typeof options.logger.debug !== 'function')
+    ) {
+      throw new Error('[mongoose-log-history] "logger" must have .error, .warn, and (optionally) .debug methods.');
     }
   }
 

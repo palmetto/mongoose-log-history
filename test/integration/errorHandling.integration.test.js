@@ -15,6 +15,7 @@ describe('mongoose-log-history plugin - Error Handling', () => {
     const customLogger = {
       error: jest.fn(),
       warn: jest.fn(),
+      debug: jest.fn(),
     };
 
     orderSchema.plugin(changeLoggingPlugin, {

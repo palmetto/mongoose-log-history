@@ -178,6 +178,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   public readonly compressDocs: boolean;
   public readonly maskedFields?: MaskedFields;
   public readonly logHistorySaver: LogHistorySaver;
+  private readonly allowAccessToLogHistory: boolean;
 
   constructor(options: PluginOptions & { modelName: string }) {
     validatePluginOptions(options);
@@ -207,6 +208,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
     this.maskedFields = extractMaskedFields(this.trackedFields);
     this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
+    this.allowAccessToLogHistory = !options.logHistorySaver;
   }
 
   /**
@@ -214,7 +216,11 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
    * @returns The log history model for this plugin configuration.
    */
   public getLogHistoryModelPlugin(): LogHistoryModel {
-    return getLogHistoryModel(this.modelName, this.singleCollection);
+    if (this.allowAccessToLogHistory) {
+      return getLogHistoryModel(this.modelName, this.singleCollection);
+    } else {
+      throw new Error('Custom logHistorySaver functions must handle model retrieval internally.');
+    }
   }
 
   /**
