@@ -44,7 +44,7 @@
   "author": "Granite Bagas <granitebagas28@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
-    "mongoose": "^8 | ^9"
+    "mongoose": "^8 || ^9"
   },
   "engines": {
     "node": ">=18"
@@ -65,6 +65,7 @@
     "husky": "^9.1.7",
     "jest": "^30.0.0",
     "lint-staged": "^15.2.2",
+    "mongoose": "^8.0.0",
     "mongodb-memory-server": "^10.1.4",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.0",
