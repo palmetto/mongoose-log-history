@@ -739,7 +739,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             user,
             updatedData,
           });
-          return next();
+
+          return self.safeNext(next);
         }
 
         if (isSoftDelete && originalDoc) {
@@ -750,7 +751,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             changeType: 'delete',
             user,
           });
-          return next();
+
+          return self.safeNext(next);
         }
 
         if (originalDoc) {
@@ -768,7 +770,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preUpdateHook] Failed to write log history. Model: ${self.modelName}. ID: ${modelId}.`
         );
       } finally {
-        next();
+        return self.safeNext(next);
       }
     };
   }
@@ -810,7 +812,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             .lean()) as Record<string, unknown> | null;
 
           if (!originalDoc) {
-            return next();
+            return self.safeNext(next);
           }
 
           let isSoftDelete = false;
@@ -838,7 +840,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preSaveHook] Failed to write log history. Model: ${self.modelName}. ID: ${modelId}.`
         );
       } finally {
-        next();
+        return self.safeNext(next);
       }
     };
   }
@@ -891,7 +893,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preInsertManyHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        next();
+        return self.safeNext(next);
       }
     };
   }
@@ -946,7 +948,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preDeleteHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        next();
+        return self.safeNext(next);
       }
     };
   }
@@ -1011,9 +1013,13 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preUpdateManyHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        next();
+        return self.safeNext(next);
       }
     };
+  }
+
+  private safeNext(next: unknown) {
+    return next && typeof next === 'function' ? next() : undefined;
   }
 }
 
