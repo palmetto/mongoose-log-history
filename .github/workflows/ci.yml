@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
-        mongoose-version: [8]
+        mongoose-version: [9]
 
     steps:
       - name: Checkout code
