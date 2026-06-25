@@ -124,7 +124,7 @@ describe('mongoose-log-history plugin - Update Operation (all hooks and edge cas
     expect(logs[0].model).toBe('Order');
   });
 
-  it('logs update via findOneAndUpdate with existing upsert without _id (creates doc and logs create)', async () => {
+  it('logs update via findOneAndUpdate with existing upsert without _id (updates doc and logs update)', async () => {
     const created = await Order.create({ customerId: '5432', status: 'pending' });
     const upserted = await Order.findOneAndUpdate(
       { customerId: '5432' },
