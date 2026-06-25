@@ -1,6 +1,6 @@
 {
   "name": "@palmetto/mongoose-log-history",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "A Mongoose plugin to automatically track and log changes (create, update, delete) to your models, with detailed audit history and flexible configuration.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -44,7 +44,7 @@
   "author": "Granite Bagas <granitebagas28@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
-    "mongoose": "^8 || ^9"
+    "mongoose": "^9"
   },
   "engines": {
     "node": ">=18"
@@ -58,6 +58,7 @@
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.41.0",
+    "bson": "^7.2.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.4.1",
@@ -65,7 +66,7 @@
     "husky": "^9.1.7",
     "jest": "^30.0.0",
     "lint-staged": "^15.2.2",
-    "mongoose": "^8.0.0",
+    "mongoose": "^9.0.0",
     "mongodb-memory-server": "^10.1.4",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.0",

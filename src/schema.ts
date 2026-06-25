@@ -98,7 +98,7 @@ const logHistorySchema = new Schema<LogHistoryDocument>(
       updatedAt: false,
     },
   }
-);
+) as Schema<LogHistoryDocument>;
 
 /**
  * Compound index for efficient querying of log entries.
