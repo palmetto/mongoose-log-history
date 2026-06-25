@@ -17,6 +17,7 @@ describe('mongoose-log-history plugin - Update Operation (all hooks and edge cas
           price: Number,
         },
       ],
+      customerId: String,
       created_by: {
         id: mongoose.Schema.Types.ObjectId,
         name: String,
@@ -99,6 +100,24 @@ describe('mongoose-log-history plugin - Update Operation (all hooks and edge cas
     await Order.findOneAndUpdate({ _id: upsertId }, { $set: { status: 'upserted' } }, { upsert: true });
 
     const logs = await LogHistory.find({ model_id: upsertId }).lean();
+    expect(logs.length).toBe(1);
+    expect(logs[0].change_type).toBe('create');
+    expect(logs[0].logs.length).toBe(0);
+    expect(logs[0].model).toBe('Order');
+  });
+
+  it('logs update via findOneAndUpdate with upsert without _id (creates doc and logs create)', async () => {
+    const upserted = await Order.findOneAndUpdate(
+      { customerId: '1234' },
+      { $set: { status: 'upserted' } },
+      { upsert: true, new: true }
+    );
+
+    expect(upserted).not.toBeNull();
+
+    const upsertedId = upserted._id;
+
+    const logs = await LogHistory.find({ model_id: upsertedId }).lean();
     expect(logs.length).toBe(1);
     expect(logs[0].change_type).toBe('create');
     expect(logs[0].logs.length).toBe(0);

@@ -1,4 +1,13 @@
-import mongoose, { Document, Query, Model, Types, isValidObjectId } from 'mongoose';
+import mongoose, {
+  Document,
+  Query,
+  Model,
+  Types,
+  isValidObjectId,
+  QueryFilter,
+  ProjectionType,
+  QueryOptions,
+} from 'mongoose';
 import {
   PluginOptions,
   TrackedField,
@@ -14,6 +23,7 @@ import {
   MaskedFields,
   LogHistorySaver,
   LogHistoryPlugin,
+  LogHistoryDocument,
 } from './types';
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
@@ -155,6 +165,10 @@ export function buildLogEntry(
   }
 
   return entry;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -692,7 +706,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   createPreUpdateHook() {
     const self = this;
 
-    return async function preUpdateHook(this: Query<unknown, unknown>, next: () => void) {
+    return async function preUpdateHook(this: Query<unknown, unknown>) {
       let modelId: string | number | Types.ObjectId | undefined;
 
       try {
@@ -733,14 +747,21 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         });
 
         if (!originalDoc && (options as { upsert?: boolean }).upsert) {
-          await self.saveLogHistory({
-            modelId: modelId!,
-            changeType: 'create',
-            user,
-            updatedData,
-          });
+          if (!modelId) {
+            this.setOptions({
+              ...this.getOptions(),
+              writeCreateLogHistory: true,
+            });
+          } else {
+            await self.saveLogHistory({
+              modelId: modelId!,
+              changeType: 'create',
+              user,
+              updatedData,
+            });
+          }
 
-          return self.safeNext(next);
+          return;
         }
 
         if (isSoftDelete && originalDoc) {
@@ -752,7 +773,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             user,
           });
 
-          return self.safeNext(next);
+          return;
         }
 
         if (originalDoc) {
@@ -770,7 +791,58 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preUpdateHook] Failed to write log history. Model: ${self.modelName}. ID: ${modelId}.`
         );
       } finally {
-        return self.safeNext(next);
+        return;
+      }
+    };
+  }
+
+  /**
+   * Create the post-update hook for handling query-based update operations.
+   * This hook intercepts updateOne, updateMany, and findOneAndUpdate operations.
+   *
+   * @returns The post-update hook function.
+   */
+  createPostUpdateHook() {
+    const self = this;
+
+    return async function postUpdateHook(this: Query<unknown, unknown>, result: unknown) {
+      let modelId: string | number | Types.ObjectId | undefined;
+
+      try {
+        const query = this;
+
+        if (query.getOptions().writeCreateLogHistory !== true || !isRecord(result)) {
+          return;
+        }
+
+        const filter = query.getFilter();
+        const options = query.getOptions() ?? {};
+        const context = (options as { context?: Record<string, unknown> }).context ?? {};
+
+        modelId = getValueByPath(result, self.modelKeyId) as string | number | Types.ObjectId;
+        if (!modelId) {
+          modelId = getValueByPath(filter, self.modelKeyId) as string | number | Types.ObjectId;
+        }
+
+        const user = self.extractUser({
+          doc: result,
+          context,
+          userField: self.userField,
+        });
+
+        await self.saveLogHistory({
+          modelId: modelId!,
+          changeType: 'create',
+          user,
+          updatedData: result,
+        });
+      } catch (err) {
+        self.logger.error(
+          err as Error,
+          `[pluginLogHistory: postUpdateHook] Failed to write log history. Model: ${self.modelName}. ID: ${modelId}.`
+        );
+      } finally {
+        return;
       }
     };
   }
@@ -784,7 +856,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   createPreSaveHook() {
     const self = this;
 
-    return async function preSaveHook(this: Document, next: () => void) {
+    return async function preSaveHook(this: Document) {
       let modelId: string | number | Types.ObjectId | undefined;
 
       try {
@@ -812,7 +884,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             .lean()) as Record<string, unknown> | null;
 
           if (!originalDoc) {
-            return self.safeNext(next);
+            return;
           }
 
           let isSoftDelete = false;
@@ -840,7 +912,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preSaveHook] Failed to write log history. Model: ${self.modelName}. ID: ${modelId}.`
         );
       } finally {
-        return self.safeNext(next);
+        return;
       }
     };
   }
@@ -854,7 +926,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   createPreInsertManyHook() {
     const self = this;
 
-    return async function preInsertManyHook(this: Model<Document>, next: () => void, docs: Document[]) {
+    return async function preInsertManyHook(this: Model<Document>, docs: Document[]) {
       try {
         await self.batchLogHistory(
           docs,
@@ -893,7 +965,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preInsertManyHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        return self.safeNext(next);
+        return;
       }
     };
   }
@@ -907,7 +979,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   createPreDeleteHook() {
     const self = this;
 
-    return async function preDeleteHook(this: Query<unknown, unknown>, next: () => void) {
+    return async function preDeleteHook(this: Query<unknown, unknown>) {
       try {
         const query = this;
         const model = query.model;
@@ -948,7 +1020,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preDeleteHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        return self.safeNext(next);
+        return;
       }
     };
   }
@@ -959,7 +1031,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
    */
   createPreUpdateManyHook() {
     const self = this;
-    return async function preUpdateManyHook(this: Query<unknown, unknown>, next: () => void) {
+    return async function preUpdateManyHook(this: Query<unknown, unknown>) {
       try {
         const query = this;
         const model = query.model as Model<Document>;
@@ -968,10 +1040,13 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
-        const originalDocs = (await model.find(filter).select(self.selectTrackedFields).lean()) as Record<
-          string,
-          unknown
-        >[];
+        await model.find(filter).select(self.selectTrackedFields).lean().exec(); // Ensure the query is executed
+
+        const originalDocs = (await model
+          .find(filter)
+          .select(self.selectTrackedFields)
+          .lean()
+          .exec()) as unknown as Record<string, unknown>[];
 
         await self.batchLogHistory(
           originalDocs,
@@ -1013,13 +1088,9 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           `[pluginLogHistory: preUpdateManyHook] Failed to write log history. Model: ${self.modelName}.`
         );
       } finally {
-        return self.safeNext(next);
+        return;
       }
     };
-  }
-
-  private safeNext(next: unknown) {
-    return next && typeof next === 'function' ? next() : undefined;
   }
 }
 
@@ -1040,25 +1111,25 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
   if (options.logHistorySaver === undefined) {
     (schema.statics as Record<string, unknown>).getHistoriesById = async function (
       modelId: string | number | Types.ObjectId,
-      fields?: unknown,
-      findOptions?: unknown
+      fields?: ProjectionType<LogHistoryDocument>,
+      findOptions?: QueryOptions<LogHistoryDocument>
     ): Promise<LogHistoryEntry[]> {
       const historyModel: LogHistoryModel = pluginInstance.getLogHistoryModelPlugin();
-      const query: Record<string, unknown> = {
-        model_id: isValidObjectId(modelId) ? new Types.ObjectId(modelId) : modelId,
+      const query: QueryFilter<LogHistoryDocument> = {
+        model_id: typeof modelId !== 'number' && isValidObjectId(modelId) ? new Types.ObjectId(modelId) : modelId,
         is_deleted: false,
       };
       if (pluginInstance.singleCollection) query.model = pluginInstance.modelName;
 
-      const logs = (await historyModel.find(query, fields as any, findOptions as any).lean()) as LogHistoryEntry[];
+      const logs = (await historyModel.find(query, fields, findOptions).lean().exec()) as LogHistoryEntry[];
 
       if (pluginInstance.compressDocs) {
         for (const log of logs) {
           if (log?.original_doc) {
-            log.original_doc = decompressObject(log.original_doc as any);
+            log.original_doc = decompressObject(log.original_doc as Buffer);
           }
           if (log?.updated_doc) {
-            log.updated_doc = decompressObject(log.updated_doc as any);
+            log.updated_doc = decompressObject(log.updated_doc as Buffer);
           }
         }
       }
@@ -1067,26 +1138,27 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
   }
 
   const preUpdateHook = pluginInstance.createPreUpdateHook();
+  const postUpdateHook = pluginInstance.createPostUpdateHook();
   const preUpdateManyHook = pluginInstance.createPreUpdateManyHook();
   const preSaveHook = pluginInstance.createPreSaveHook();
   const preInsertManyHook = pluginInstance.createPreInsertManyHook();
   const preDeleteHook = pluginInstance.createPreDeleteHook();
 
   schema.pre('updateOne', preUpdateHook);
+  schema.post('updateOne', postUpdateHook);
   schema.pre('findOneAndUpdate', preUpdateHook);
+  schema.post('findOneAndUpdate', postUpdateHook);
   schema.pre('findOneAndReplace', preUpdateHook);
+  schema.post('findOneAndReplace', postUpdateHook);
   schema.pre('replaceOne', preUpdateHook);
+  schema.post('replaceOne', postUpdateHook);
 
-  (schema.pre as unknown as any)('update', preUpdateHook);
   schema.pre('updateMany', preUpdateManyHook);
 
   schema.pre('save', preSaveHook);
   schema.pre('insertMany', preInsertManyHook);
 
   schema.pre('findOneAndDelete', preDeleteHook);
-  (schema.pre as unknown as any)('findByIdAndDelete', preDeleteHook);
   schema.pre('deleteOne', preDeleteHook);
   schema.pre('deleteMany', preDeleteHook);
-  (schema.pre as unknown as any)('remove', preDeleteHook);
-  (schema.pre as unknown as any)('delete', preDeleteHook);
 }
