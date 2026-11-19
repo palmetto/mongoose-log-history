@@ -172,6 +172,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Rewrite schema aliases in an update to their paths, so masks and tracked fields, which are keyed by path,
+ * match what the update sets. `translateAliases` mutates its argument, so it gets a copy of the update and
+ * of each operator object.
+ */
+function translateUpdateAliases(model: Model<unknown>, update: unknown): Record<string, unknown> | null {
+  if (!isRecord(update)) {
+    return null;
+  }
+
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(update)) {
+    copy[key] = key.startsWith('$') && isRecord(value) ? { ...value } : value;
+  }
+
+  return model.translateAliases(copy);
+}
+
+/**
  * Main plugin class that handles all change logging functionality.
  * This class encapsulates all the logic for tracking document changes
  * and provides a clean interface for the Mongoose plugin system.
@@ -715,7 +733,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         const query = this;
         const model = query.model;
         const filter = query.getFilter();
-        const update = query.getUpdate() as Record<string, unknown>;
+        const update = translateUpdateAliases(model, query.getUpdate());
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
@@ -1038,7 +1056,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         const query = this;
         const model = query.model as Model<Document>;
         const filter = query.getFilter();
-        const update = query.getUpdate() as Record<string, unknown>;
+        const update = translateUpdateAliases(model, query.getUpdate());
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 

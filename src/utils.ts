@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ArrayDiff, Mask, MaskedFields, PluginOptions, TrackedField } from './types';
 
 /**
@@ -457,6 +457,7 @@ function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
  * Deep clone an object to prevent mutations, replacing every masked value.
  * A key is masked when its full path, or an ancestor of it, has a mask. Keys that hold a dotted path,
  * such as `card.number` or `cards.$.number` from an update, are matched the same way.
+ * A Mongoose document is cloned from `toObject()`, so its paths match the schema's.
  * @param obj - The object to clone.
  * @param maskedFields - Optional mapping of field paths to masked values or functions.
  * @param parentPath - The parent path for the current object (used for masking).
@@ -473,6 +474,10 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
 
   if (obj instanceof Types.ObjectId) {
     return obj as T;
+  }
+
+  if (obj instanceof Document) {
+    return deepClone(obj.toObject(), maskedFields, parentPath);
   }
 
   if (Array.isArray(obj)) {
