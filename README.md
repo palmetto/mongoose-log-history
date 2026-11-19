@@ -364,7 +364,7 @@ Each entry in the array can have the following properties:
 | `arrayKey`      | string       | For `'custom-key'` arrays: the unique key field for each object in the array                |
 | `valueField`    | string       | For `'custom-key'` arrays: the field inside the object to track                             |
 | `contextFields` | array/object | Additional fields to include in the log context for this field (see above)                  |
-| `mask`          | string/func  | Mask for this field's value in log entries and snapshots (see below)                        |
+| `mask`          | string/func  | Mask for this field's value in log entries, context, and snapshots (see below)              |
 | `trackedFields` | array        | For nested objects/arrays: additional fields inside the array/object to track               |
 
 **Examples:**
@@ -415,6 +415,8 @@ A mask on a path also covers every path under it, unless a path under it has its
 - `original_doc` and `updated_doc`, including keys an update sets by a dotted or positional path, such as `card.number` or `cards.$.number`.
 - The `from_value` and `to_value` of log entries. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
 - Values copied into a log entry's `context` by `contextFields`: the plugin-level option, and a tracked field's own, from the document or from an array item.
+
+A null or undefined value is stored as is, and a function mask is never called with one.
 
 Snapshots hold stored fields only: virtuals, aliases, `toObject` transforms, and populated documents are left out, whatever the schema's `toObject` options are.
 
@@ -577,7 +579,7 @@ If you need to log changes manually (for example, in custom flows or scripts whe
 
 #### `getTrackedChanges(originalDoc, updatedDoc, trackedFields, maskedFields?)`
 
-Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` is merged with the masks set on the tracked fields; on the same path, `maskedFields` wins.
+Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` is merged with the masks set on the tracked fields; on the same path, `maskedFields` wins. The masks apply to the returned `from_value`, `to_value`, and `context`.
 
 **Example:**
 
@@ -589,7 +591,7 @@ const changes = getTrackedChanges(originalDoc, updatedDoc, trackedFields);
 
 ---
 
-#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs)`
+#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs, maskedFields)`
 
 Builds a log entry object compatible with the plugin’s log schema.
 
@@ -608,7 +610,8 @@ const logEntry = buildLogEntry(
   updatedDoc,
   context,
   false, // saveWholeDoc
-  false // compressDocs
+  false, // compressDocs
+  { 'card.number': '****' } // maskedFields
 );
 ```
 
@@ -622,6 +625,7 @@ const logEntry = buildLogEntry(
 - `context`: Additional context fields.
 - `saveWholeDoc`: Save full doc snapshots.
 - `compressDocs`: Compress doc snapshots.
+- `maskedFields`: Masks applied to `originalDoc` and `updatedDoc` (see [Masking Sensitive Fields](#masking-sensitive-fields)). `buildLogEntry` does not know your plugin options, so pass the masks yourself; without them, snapshots are stored unmasked.
 
 ---
 

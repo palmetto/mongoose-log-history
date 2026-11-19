@@ -72,8 +72,9 @@ export interface TrackedField {
   valueField?: string;
 
   /**
-   * When defined, the value for this field field is masked in the logs.
-   * This is useful for sensitive information that should not be stored in logs.
+   * Mask for this field's value in log entries, `context`, and `original_doc`/`updated_doc` snapshots.
+   * It is keyed by the field's full path and also covers paths under it that have no mask of their own.
+   * Use it for sensitive values that must not be stored in history.
    */
   mask?: Mask;
 
@@ -170,9 +171,9 @@ export interface PluginOptions {
   compressDocs?: boolean;
 
   /**
-   * Masks keyed by full dotted field path, applied to `original_doc`/`updated_doc` snapshots
-   * and to logged values. Merged with the `mask` of each tracked field; on the same path, this option wins.
-   * Use it to mask a field that is not tracked, so its value never reaches the snapshots.
+   * Masks keyed by full dotted field path without array indexes, applied to `original_doc`/`updated_doc`
+   * snapshots, logged values, and `context`. Merged with the `mask` of each tracked field; on the same path,
+   * this option wins. Use it to mask a field that is not tracked, so its value never reaches the snapshots.
    */
   maskedFields?: MaskedFields;
 
@@ -279,6 +280,8 @@ export interface LogHistoryModel extends Model<LogHistoryDocument> {}
 
 /**
  * A mask can be a static string or a function that accepts the original value and returns a masked string.
+ * A function mask is only called with a value at its own path that is not null or undefined; a null or
+ * undefined value is stored as is, and a path under a function mask is stored as `****`.
  */
 export type Mask = string | ((value: unknown) => string | null | undefined);
 
@@ -301,6 +304,9 @@ export interface BuildLogEntryParams {
   context?: Record<string, unknown>;
   saveWholeDoc?: boolean;
   compressDocs?: boolean;
+  /**
+   * Masks applied to `original_doc` and `updated_doc`. Pass the same masks used for the logs.
+   */
   maskedFields?: MaskedFields;
 }
 

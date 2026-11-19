@@ -7,6 +7,7 @@ This directory contains runnable examples for common use cases:
 - `batch.js` — Batch operations and batch limits
 - `context-fields.js` — Logging with context fields (including item context)
 - `compression.js` — Compression and decompression of document snapshots
+- `masking.js` — Masking sensitive fields in log entries and snapshots
 - `user-field.js` — Using userField for user extraction (dot notation and top-level)
 - `array-custom-key.js` — Tracking changes in arrays of objects (custom-key)
 - `nested-trackedFields.js` — Tracking changes in nested fields and arrays
