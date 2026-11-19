@@ -27,7 +27,7 @@ async function main() {
 
   console.log('Decompressed original:', orig);
   console.log('Decompressed updated:', updated);
-  // Example (the original snapshot holds only the tracked fields, which are what the plugin loads):
+  // Example:
   // Decompressed original: { _id: '...', status: 'pending' }
   // Decompressed updated: { status: 'done', data: 'bar', _id: '...', __v: 0 }
 

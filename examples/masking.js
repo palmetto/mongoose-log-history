@@ -18,8 +18,6 @@ async function main() {
         trackedFields: [{ value: 'number', mask: (v) => `****${String(v).slice(-4)}` }, { value: 'cvc' }],
       },
     ],
-    // `ssn` is not tracked, but it is in the snapshots.
-    // `card.cvc` is tracked without a mask, so it gets one here.
     maskedFields: { ssn: '****', 'card.cvc': '****' },
     singleCollection: true,
     saveWholeDoc: true,

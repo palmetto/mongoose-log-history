@@ -14,10 +14,8 @@ async function main() {
       {
         value: 'items',
         arrayType: 'custom-key',
-        // Items are matched by `sku`. An added or removed item is logged by its `name`.
         arrayKey: 'sku',
         valueField: 'name',
-        // For an item in both versions, these fields are compared.
         trackedFields: [{ value: 'qty' }],
       },
     ],
@@ -33,7 +31,6 @@ async function main() {
     ],
   });
 
-  // Remove B, add C, and change the quantity of A.
   order.items = [
     { sku: 'A', name: 'Apple', qty: 5 },
     { sku: 'C', name: 'Cherry', qty: 3 },

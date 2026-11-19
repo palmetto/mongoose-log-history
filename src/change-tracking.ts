@@ -13,18 +13,12 @@ import {
 
 type Doc = Record<string, unknown> | null | undefined;
 
-/**
- * The array element a sub-field belongs to. `path` is the array's full dotted path, without indexes.
- */
 interface ArrayItem {
-  path: string;
+  arrayPath: string;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
 }
 
-/**
- * Everything a field's change processing reads besides the field's own values.
- */
 interface ChangeScope {
   originalDoc: Doc;
   updatedDoc: Doc;
@@ -110,7 +104,7 @@ function extractScopedContext(field: TrackedField, scope: ChangeScope): Record<s
     scope.item?.before ?? null,
     scope.item?.after ?? null,
     scope.maskedFields,
-    scope.item?.path
+    scope.item?.arrayPath
   );
 }
 
@@ -118,10 +112,8 @@ function extractScopedContext(field: TrackedField, scope: ChangeScope): Record<s
  * Process changes for a simple (non-array) field.
  *
  * @param field - The tracked field configuration.
- * @param fieldName - The field's full dotted path, used as the log's field name and to find its masks.
  * @param beforeValue - The value before the change.
  * @param afterValue - The value after the change.
- * @param scope - The documents, masks, and enclosing array item.
  * @returns Array of change log objects for this field.
  */
 function processGenericFieldChanges(
@@ -186,10 +178,8 @@ function processGenericFieldChanges(
  * Process changes for a simple array field (array of primitives).
  *
  * @param field - The tracked field configuration.
- * @param fieldName - The array's full dotted path, used as the log's field name and to find its masks.
  * @param beforeValue - The array before the change.
  * @param afterValue - The array after the change.
- * @param scope - The documents, masks, and enclosing array item.
  * @returns Array of change log objects for this field.
  */
 function processSimpleArrayChanges(
@@ -238,10 +228,8 @@ function processSimpleArrayChanges(
  * This handles complex arrays where objects are identified by a specific key field.
  *
  * @param field - The tracked field configuration.
- * @param fieldName - The array's full dotted path, used as the log's field name and to find its masks.
  * @param beforeValue - The array before the change.
  * @param afterValue - The array after the change.
- * @param scope - The documents and masks. Each item of this array becomes the scope's item for its sub-fields.
  * @returns Array of change log objects for this field.
  */
 function processCustomKeyArrayChanges(
@@ -283,7 +271,7 @@ function processCustomKeyArrayChanges(
 
     const itemScope: ChangeScope = {
       ...scope,
-      item: { path: fieldName, before: beforeItem ?? null, after: afterItem ?? null },
+      item: { arrayPath: fieldName, before: beforeItem ?? null, after: afterItem ?? null },
     };
     const context = extractScopedContext(field, itemScope);
 
@@ -324,11 +312,9 @@ function processCustomKeyArrayChanges(
 /**
  * Process changes for nested tracked fields inside an array of objects.
  * @param field - The tracked field configuration.
- * @param arrayPath - The array's full dotted path. Each sub-field's path is this plus its own value.
  * @param beforeItem - The array item before the change.
  * @param afterItem - The array item after the change.
- * @param scope - The documents, masks, and this array item.
- * @param parentContext - The context from the parent field (optional).
+ * @param parentContext - The context from the parent field.
  * @returns Array of change log objects for nested fields.
  */
 function processSubFieldChanges(
