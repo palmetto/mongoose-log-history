@@ -10,7 +10,10 @@ const {
   diffSimpleArray,
   setByPath,
   valueToString,
+  collectAliasPaths,
+  mergeMaskedFields,
 } = require('../../dist/utils');
+const mongoose = require('mongoose');
 
 describe('utils', () => {
   describe('isDate', () => {
@@ -211,6 +214,39 @@ describe('utils', () => {
       const maskFn = (val) => 'X'.repeat(String(val).length);
       expect(valueToString('secret', maskFn)).toBe('XXXXXX');
       expect(valueToString(12345, maskFn)).toBe('XXXXX');
+    });
+  });
+
+  describe('collectAliasPaths and mergeMaskedFields', () => {
+    it('registers each mask under every alias spelling of its path', () => {
+      const card = new mongoose.Schema({ number: { type: String, alias: 'cardNumber' } });
+      const schema = new mongoose.Schema({
+        ssn: { type: String, alias: 'socialNumber' },
+        card: { type: card, alias: 'c' },
+        bank: { account: { type: String, alias: 'acct' } },
+      });
+      const masks = mergeMaskedFields(
+        [{ value: 'cards.0.cvc', mask: 'cvc' }],
+        { ssn: 's', 'card.number': 'n', bank: 'b' },
+        collectAliasPaths(schema)
+      );
+      expect(masks).toEqual({
+        'cards.cvc': 'cvc',
+        ssn: 's',
+        socialNumber: 's',
+        'card.number': 'n',
+        'card.cardNumber': 'n',
+        'c.cardNumber': 'n',
+        'c.number': 'n',
+        bank: 'b',
+        acct: 'b',
+      });
+    });
+
+    it('terminates on a schema that contains itself', () => {
+      const node = new mongoose.Schema({ secret: { type: String, alias: 's' } });
+      node.add({ children: [node] });
+      expect(collectAliasPaths(node)).toContainEqual({ alias: 's', path: 'secret' });
     });
   });
 });

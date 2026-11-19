@@ -240,3 +240,99 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     }).toThrow(/without array indexes/);
   });
 });
+
+describe('mongoose-log-history plugin - Sensitive Masking of schema-shaped input', () => {
+  const PIN = 'PIN-9876';
+  let Wallet;
+  let LogHistory;
+
+  beforeAll(() => {
+    const cardSchema = new mongoose.Schema(
+      { number: { type: String, alias: 'cardNumber' }, brand: String },
+      { _id: false }
+    );
+    const walletSchema = new mongoose.Schema(
+      {
+        name: String,
+        ssn: { type: String, alias: 'socialNumber' },
+        card: cardSchema,
+        slots: [{ _id: false, number: String }],
+        meta: { type: Map, of: String },
+      },
+      { toObject: { virtuals: true } }
+    );
+    walletSchema.virtual('ssnCopy').get(function () {
+      return this.ssn;
+    });
+
+    walletSchema.plugin(changeLoggingPlugin, {
+      modelName: 'Wallet',
+      trackedFields: [{ value: 'name' }, { value: 'card' }, { value: 'slots.0.number', mask: '****' }],
+      contextFields: ['ssn'],
+      maskedFields: { ssn: '****', 'card.number': '****', 'meta.pin': '****' },
+      singleCollection: true,
+      saveWholeDoc: true,
+    });
+
+    Wallet = mongoose.model('SensitiveWallet', walletSchema);
+    LogHistory = getLogHistoryModel('Wallet', true);
+  });
+
+  const wait = () => new Promise((resolve) => setTimeout(resolve, 100));
+
+  afterEach(async () => {
+    await Wallet.deleteMany({});
+    await LogHistory.deleteMany({});
+  });
+
+  it('masks entry context, virtuals, aliases, and Map values on create and delete', async () => {
+    const wallet = await Wallet.create({
+      name: 'a',
+      ssn: SSN,
+      card: { number: NEW_CARD },
+      meta: { pin: PIN, label: 'x' },
+    });
+    await Wallet.deleteOne({ _id: wallet._id });
+    await wait();
+
+    const created = await LogHistory.findOne({ model_id: wallet._id, change_type: 'create' }).lean();
+    expect(created.context).toEqual({ doc: { ssn: '****' } });
+    expect(created.updated_doc.meta).toEqual({ pin: '****', label: 'x' });
+    expectNoPlaintext(created, [SSN, NEW_CARD, PIN]);
+    expect(JSON.stringify(created)).not.toMatch(/socialNumber|cardNumber|ssnCopy/);
+
+    const deleted = await LogHistory.findOne({ model_id: wallet._id, change_type: 'delete' }).lean();
+    expect(deleted.context).toEqual({ doc: { ssn: '****' } });
+    expectNoPlaintext(deleted, [SSN, NEW_CARD, PIN]);
+  });
+
+  it('masks a tracked field whose path has an array index', async () => {
+    const wallet = await Wallet.create({ name: 'a', slots: [{ number: OLD_CARD }] });
+    wallet.slots[0].number = NEW_CARD;
+    await wallet.save();
+    await wait();
+
+    const history = await LogHistory.findOne({ model_id: wallet._id, change_type: 'update' }).lean();
+    expect(history.logs).toEqual([
+      expect.objectContaining({ field_name: 'slots.0.number', from_value: '****', to_value: '****' }),
+    ]);
+    expectNoPlaintext(history, [OLD_CARD, NEW_CARD]);
+  });
+
+  it('masks alias keys in documents passed to insertMany', async () => {
+    await Wallet.insertMany([{ name: 'a', socialNumber: SSN, card: { cardNumber: NEW_CARD } }]);
+    await wait();
+
+    const created = await LogHistory.findOne({ change_type: 'create' }).lean();
+    expectNoPlaintext(created, [SSN, NEW_CARD]);
+  });
+
+  it('masks alias keys inside a subdocument set by an update', async () => {
+    const wallet = await Wallet.create({ name: 'a' });
+    await Wallet.updateOne({ _id: wallet._id }, { $set: { name: 'b', card: { cardNumber: NEW_CARD } } });
+    await wait();
+
+    const history = await LogHistory.findOne({ model_id: wallet._id, change_type: 'update' }).lean();
+    expectNoPlaintext(history, [NEW_CARD]);
+  });
+});
