@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-19
+
 ### Added
 
 - `maskedFields` plugin option: masks keyed by full dotted path, merged with the masks of tracked fields. It masks fields that are not tracked in `original_doc` and `updated_doc`.
