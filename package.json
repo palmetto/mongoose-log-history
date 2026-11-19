@@ -28,7 +28,7 @@
     "type-check": "tsc --noEmit",
     "test:ci": "npm run type-check && npm run build && npm run lint",
     "prepare": "husky",
-    "test": "jest"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "repository": "github:palmetto/mongoose-log-history",
   "keywords": [
