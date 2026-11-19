@@ -410,10 +410,11 @@ Set a mask in two places:
 
 Both sets of masks are merged. On the same path, `maskedFields` wins.
 
-A mask applies to:
+A mask on a path also covers every path under it. It applies everywhere a document value is stored:
 
-- `original_doc` and `updated_doc`.
-- Log entries. A mask on a path also covers every path under it. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
+- `original_doc` and `updated_doc`, including keys an update sets by a dotted or positional path, such as `card.number` or `cards.$.number`.
+- The `from_value` and `to_value` of log entries. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
+- Values copied into a log entry's `context` by `contextFields`, from the document or from an array item.
 
 ```js
 schema.plugin(changeLoggingPlugin, {
@@ -428,7 +429,7 @@ schema.plugin(changeLoggingPlugin, {
 });
 ```
 
-Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`.
+Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`. A `maskedFields` key that contains an index or a positional operator, such as `items.0.secret`, throws when the plugin is registered.
 
 ---
 
@@ -572,7 +573,7 @@ If you need to log changes manually (for example, in custom flows or scripts whe
 
 #### `getTrackedChanges(originalDoc, updatedDoc, trackedFields, maskedFields?)`
 
-Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` defaults to the masks set on the tracked fields.
+Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` is merged with the masks set on the tracked fields; on the same path, `maskedFields` wins.
 
 **Example:**
 
