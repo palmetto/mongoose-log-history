@@ -12,6 +12,7 @@ const OLD_NOTE = 'old private note';
 const NEW_NOTE = 'new private note';
 const OLD_ACCOUNT = '000123456789';
 const NEW_ACCOUNT = '000987654321';
+const SSN = '123-45-6789';
 
 function expectNoPlaintext(history, secrets) {
   const stored = JSON.stringify({
@@ -39,6 +40,7 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
       },
       cards: [{ _id: false, id: String, number: String, label: String }],
       bank: { account: String, routing: String },
+      ssn: { type: String, alias: 'socialNumber' },
     });
 
     accountSchema.plugin(changeLoggingPlugin, {
@@ -58,7 +60,7 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
           trackedFields: [{ value: 'number', mask: lastFour }, { value: 'label' }],
         },
       ],
-      maskedFields: { notes: '[redacted]', bank: '****' },
+      maskedFields: { notes: '[redacted]', bank: '****', ssn: '****' },
       singleCollection: true,
       saveWholeDoc: true,
     });
@@ -153,6 +155,31 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
     expect(history).not.toBeNull();
     expectNoPlaintext(history, [OLD_ACCOUNT, NEW_ACCOUNT, OLD_CARD, NEW_CARD]);
+  });
+
+  it('masks a value set through a schema alias', async () => {
+    const account = await Account.create({ name: 'a' });
+    const update = { $set: { name: 'b', socialNumber: SSN } };
+    await Account.updateOne({ _id: account._id }, update);
+    await wait();
+
+    const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
+    expect(history.updated_doc.ssn).toBe('****');
+    expectNoPlaintext(history, [SSN]);
+    expect(update.$set).toEqual({ name: 'b', socialNumber: SSN });
+  });
+
+  it('masks the document created by an upsert through findOneAndUpdate', async () => {
+    await Account.findOneAndUpdate(
+      { name: 'upserted' },
+      { $set: { ssn: SSN, card: { number: NEW_CARD, cvc: NEW_CVC } } },
+      { upsert: true, new: true }
+    );
+    await wait();
+
+    const history = await LogHistory.findOne({ change_type: 'create' }).lean();
+    expect(history.updated_doc).toMatchObject({ ssn: '****', card: { number: '****1111', cvc: '****' } });
+    expectNoPlaintext(history, [SSN, NEW_CARD, NEW_CVC]);
   });
 
   it('masks tracked fields of custom-key array items that change in place', async () => {
