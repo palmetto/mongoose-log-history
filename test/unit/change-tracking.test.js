@@ -176,6 +176,43 @@ describe('change-tracking', () => {
       expect(changes[0]).toMatchObject({ field_name: 'card.number', from_value: '[card]', to_value: '[card]' });
     });
 
+    it('does not call a function mask on an ancestor path with a value under it', () => {
+      const changes = getTrackedChanges(
+        { bank: { account: '123456789' } },
+        { bank: { account: '987654321' } },
+        [{ value: 'bank.account' }],
+        { bank: (v) => v.account.slice(-4) }
+      );
+      expect(changes[0]).toMatchObject({ field_name: 'bank.account', from_value: '[masked]', to_value: '[masked]' });
+    });
+
+    it('masks nested values of an object at an indexed path', () => {
+      const changes = getTrackedChanges(
+        { slots: [{ number: '4000000000000002', label: 'a' }] },
+        { slots: [{ number: '4111111111111111', label: 'a' }] },
+        [{ value: 'slots.0' }],
+        { 'slots.number': '****' }
+      );
+      expect(changes[0]).toMatchObject({
+        field_name: 'slots.0',
+        from_value: '{"number":"****","label":"a"}',
+        to_value: '{"number":"****","label":"a"}',
+      });
+    });
+
+    it('leaves a missing context field unmasked instead of calling its function mask', () => {
+      const changes = getTrackedChanges(
+        { name: 'a' },
+        { name: 'b' },
+        [{ value: 'name', contextFields: ['nickname'] }],
+        {
+          nickname: (s) => s.slice(-4),
+        }
+      );
+      expect(changes).toHaveLength(1);
+      expect(changes[0].context.doc.nickname).toBeUndefined();
+    });
+
     it('keeps the masks of tracked sub-fields when maskedFields is passed', () => {
       const trackedFields = [
         { value: 'card', trackedFields: [{ value: 'number', mask: '****' }] },

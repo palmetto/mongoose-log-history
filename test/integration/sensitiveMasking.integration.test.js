@@ -134,7 +134,6 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
     expect(history.logs[0].context.doc).toEqual({
       card: { number: '****0002', cvc: '****' },
-      notes: '[redacted]',
       bank: '****',
     });
     expectNoPlaintext(history, [OLD_CARD, OLD_CVC, OLD_NOTE, OLD_ACCOUNT]);

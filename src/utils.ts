@@ -427,11 +427,9 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
 }
 
 /**
- * Find the mask that covers a path: the mask on the path itself or on its nearest masked ancestor.
- * An ancestor wins because a masked object is replaced whole, so nothing under it is visible.
- * @param path - A dotted path. It may contain array indexes and positional operators, such as an update key.
- * @param maskedFields - Masks keyed by full dotted path.
- * @returns The covering mask, or undefined if the path is not masked.
+ * Drop array indexes and positional operators from a dotted path, giving the path a mask is keyed by.
+ * @param path - A dotted path, such as an update key.
+ * @returns The path without its array element segments.
  */
 function normalizeMaskPath(path: string): string {
   return path
@@ -440,20 +438,27 @@ function normalizeMaskPath(path: string): string {
     .join('.');
 }
 
+/**
+ * Find the mask that covers a path: the mask on the path itself or on its nearest masked ancestor.
+ * An ancestor wins because a masked object is replaced whole, so nothing under it is visible.
+ * A function mask on an ancestor is replaced by `'[masked]'`, because a function mask is only called
+ * with the value at its own path.
+ * @param path - A dotted path. It may contain array indexes and positional operators, such as an update key.
+ * @param maskedFields - Masks keyed by full dotted path.
+ * @returns The covering mask, or undefined if the path is not masked.
+ */
 function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
   if (!maskedFields) {
     return undefined;
   }
 
+  const fullPath = normalizeMaskPath(path);
   let prefix = '';
-  for (const segment of path.split('.')) {
-    if (ARRAY_ELEMENT_SEGMENT.test(segment)) {
-      continue;
-    }
-
+  for (const segment of fullPath.split('.')) {
     prefix = prefix ? `${prefix}.${segment}` : segment;
     if (Object.prototype.hasOwnProperty.call(maskedFields, prefix)) {
-      return maskedFields[prefix];
+      const mask = maskedFields[prefix];
+      return typeof mask === 'function' && prefix !== fullPath ? '[masked]' : mask;
     }
   }
 
@@ -464,6 +469,7 @@ function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
  * Deep clone an object to prevent mutations, replacing every masked value.
  * A key is masked when its full path, or an ancestor of it, has a mask. Keys that hold a dotted path,
  * such as `card.number` or `cards.$.number` from an update, are matched the same way.
+ * A masked key whose value is null or undefined keeps that value.
  * A Mongoose document is cloned from `toPlainObject()`, and a Map from its entries, so their paths match the schema's.
  * @param obj - The object to clone.
  * @param maskedFields - Optional mapping of field paths to masked values or functions.
@@ -501,7 +507,7 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
       const fullKey = parentPath ? `${parentPath}.${key}` : key;
       const mask = findMask(fullKey, maskedFields);
       if (mask !== undefined) {
-        cloned[key] = typeof mask === 'function' ? mask(value) : mask;
+        cloned[key] = valueToString(value, mask);
         continue;
       }
 
@@ -518,7 +524,7 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
  * A mask on the path (or an ancestor) replaces the whole value. Otherwise, for an object or array value,
  * masks on paths under it are applied to its nested values before it is stringified.
  * @param val - The value to convert.
- * @param path - The full dotted path of the value, without array indexes.
+ * @param path - The full dotted path of the value. It may contain array indexes.
  * @param maskedFields - Masks keyed by full dotted path.
  * @returns String representation of the masked value.
  */
@@ -532,7 +538,7 @@ export function maskedValueToString(
     return valueToString(val, mask);
   }
 
-  const prefix = `${path}.`;
+  const prefix = `${normalizeMaskPath(path)}.`;
   const masksNestedPath = Object.keys(maskedFields).some((key) => key.startsWith(prefix));
   return valueToString(masksNestedPath ? deepClone(val, maskedFields, path) : val);
 }
@@ -565,8 +571,10 @@ export function toPlainObject(doc: Document): Record<string, unknown> {
  */
 export function mergeMaskedFields(trackedFields: TrackedField[], explicit?: MaskedFields): MaskedFields | undefined {
   const merged: MaskedFields = {};
-  for (const [path, mask] of Object.entries({ ...extractMaskedFields(trackedFields), ...explicit })) {
-    merged[normalizeMaskPath(path)] = mask;
+  for (const masks of [extractMaskedFields(trackedFields), explicit]) {
+    for (const [path, mask] of Object.entries(masks ?? {})) {
+      merged[normalizeMaskPath(path)] = mask;
+    }
   }
 
   return Object.keys(merged).length > 0 ? merged : undefined;
