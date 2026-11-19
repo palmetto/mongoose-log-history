@@ -1,12 +1,13 @@
-import { TrackedField, FieldLog, ContextFields, ArrayDiff } from './types';
+import { TrackedField, FieldLog, ContextFields, ArrayDiff, MaskedFields } from './types';
 import {
   getValueByPath,
   areValuesEqual,
-  valueToString,
+  maskedValueToString,
   exists,
   setByPath,
   arrayToKeyMap,
   diffSimpleArray,
+  extractMaskedFields,
 } from './utils';
 
 /**
@@ -77,6 +78,7 @@ export function extractLogContext(
  * @param parentFieldName - The parent field name for nested arrays (optional).
  * @param beforeItem - The array item before change (optional, for array sub-fields).
  * @param afterItem - The array item after change (optional, for array sub-fields).
+ * @param maskedFields - Masks keyed by full dotted path (optional).
  * @returns Array of change log objects for this field.
  */
 function processGenericFieldChanges(
@@ -87,15 +89,16 @@ function processGenericFieldChanges(
   updatedDoc: Record<string, unknown> | null | undefined,
   parentFieldName: string | null = null,
   beforeItem: Record<string, unknown> | null = null,
-  afterItem: Record<string, unknown> | null = null
+  afterItem: Record<string, unknown> | null = null,
+  maskedFields?: MaskedFields
 ): FieldLog[] {
   const log: FieldLog[] = [];
   const fieldName = parentFieldName ?? field.value;
   const beforeExists = exists(beforeValue);
   const afterExists = exists(afterValue);
 
-  const rawBefore = valueToString(beforeValue, field.mask);
-  const rawAfter = valueToString(afterValue, field.mask);
+  const rawBefore = maskedValueToString(beforeValue, fieldName, field.mask, maskedFields);
+  const rawAfter = maskedValueToString(afterValue, fieldName, field.mask, maskedFields);
 
   const beforeStr: string | null | undefined = rawBefore;
   const afterStr: string | null | undefined = rawAfter;
@@ -152,6 +155,7 @@ function processGenericFieldChanges(
  * @param parentFieldName - The parent field name for nested arrays (optional).
  * @param beforeItem - The array item before change (optional, for array sub-fields).
  * @param afterItem - The array item after change (optional, for array sub-fields).
+ * @param maskedFields - Masks keyed by full dotted path (optional).
  * @returns Array of change log objects for this field.
  */
 function processSimpleArrayChanges(
@@ -162,7 +166,8 @@ function processSimpleArrayChanges(
   updatedDoc: Record<string, unknown> | null | undefined,
   parentFieldName: string | null = null,
   beforeItem: Record<string, unknown> | null = null,
-  afterItem: Record<string, unknown> | null = null
+  afterItem: Record<string, unknown> | null = null,
+  maskedFields?: MaskedFields
 ): FieldLog[] {
   const log: FieldLog[] = [];
 
@@ -175,7 +180,7 @@ function processSimpleArrayChanges(
   const context = extractLogContext(field.contextFields, originalDoc, updatedDoc, beforeItem, afterItem);
 
   for (const item of added) {
-    const v = valueToString(item, field.mask);
+    const v = maskedValueToString(item, fieldName, field.mask, maskedFields);
     log.push({
       field_name: fieldName,
       from_value: null,
@@ -186,7 +191,7 @@ function processSimpleArrayChanges(
   }
 
   for (const item of removed) {
-    const v = valueToString(item, field.mask);
+    const v = maskedValueToString(item, fieldName, field.mask, maskedFields);
     log.push({
       field_name: fieldName,
       from_value: v === null || v === undefined ? null : v,
@@ -209,8 +214,7 @@ function processSimpleArrayChanges(
  * @param originalDoc - The original document.
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
- * @param beforeItem - The array item before change (optional, for array sub-fields).
- * @param afterItem - The array item after change (optional, for array sub-fields).
+ * @param maskedFields - Masks keyed by full dotted path (optional).
  * @returns Array of change log objects for this field.
  */
 function processCustomKeyArrayChanges(
@@ -219,7 +223,8 @@ function processCustomKeyArrayChanges(
   afterValue: unknown,
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
-  parentFieldName: string | null = null
+  parentFieldName: string | null = null,
+  maskedFields?: MaskedFields
 ): FieldLog[] {
   const log: FieldLog[] = [];
 
@@ -233,6 +238,7 @@ function processCustomKeyArrayChanges(
   const allKeys = new Set([...Object.keys(beforeMap), ...Object.keys(afterMap)]);
 
   const fieldName = parentFieldName ?? field.value;
+  const valuePath = `${fieldName}.${field.valueField}`;
 
   for (const key of allKeys) {
     const beforeItem = beforeMap[key];
@@ -240,8 +246,14 @@ function processCustomKeyArrayChanges(
     const beforeExists = exists(beforeItem);
     const afterExists = exists(afterItem);
 
-    const fvRaw = beforeItem && field.valueField ? valueToString(beforeItem[field.valueField], field.mask) : undefined;
-    const tvRaw = afterItem && field.valueField ? valueToString(afterItem[field.valueField], field.mask) : undefined;
+    const fvRaw =
+      beforeItem && field.valueField
+        ? maskedValueToString(beforeItem[field.valueField], valuePath, field.mask, maskedFields)
+        : undefined;
+    const tvRaw =
+      afterItem && field.valueField
+        ? maskedValueToString(afterItem[field.valueField], valuePath, field.mask, maskedFields)
+        : undefined;
     const fromValue: string | null = fvRaw === null || fvRaw === undefined ? null : fvRaw;
     const toValue: string | null = tvRaw === null || tvRaw === undefined ? null : tvRaw;
 
@@ -274,7 +286,18 @@ function processCustomKeyArrayChanges(
     }
 
     if (beforeExists && afterExists && Array.isArray(field.trackedFields)) {
-      log.push(...processSubFieldChanges(field, beforeItem, afterItem, originalDoc, updatedDoc, fieldName, context));
+      log.push(
+        ...processSubFieldChanges(
+          field,
+          beforeItem,
+          afterItem,
+          originalDoc,
+          updatedDoc,
+          fieldName,
+          context,
+          maskedFields
+        )
+      );
     }
   }
 
@@ -290,6 +313,7 @@ function processCustomKeyArrayChanges(
  * @param updatedDoc - The updated document.
  * @param parentFieldName - The parent field name for nested arrays (optional).
  * @param parentContext - The context from the parent field (optional).
+ * @param maskedFields - Masks keyed by full dotted path (optional).
  * @returns Array of change log objects for nested fields.
  */
 function processSubFieldChanges(
@@ -299,7 +323,8 @@ function processSubFieldChanges(
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
   parentFieldName: string | null = null,
-  parentContext: Record<string, unknown> | undefined = undefined
+  parentContext: Record<string, unknown> | undefined = undefined,
+  maskedFields?: MaskedFields
 ): FieldLog[] {
   const log: FieldLog[] = [];
 
@@ -324,10 +349,19 @@ function processSubFieldChanges(
         updatedDoc,
         fieldName,
         beforeItem,
-        afterItem
+        afterItem,
+        maskedFields
       );
     } else if (subField.arrayType === 'custom-key' && subField.arrayKey) {
-      subLogs = processCustomKeyArrayChanges(subField, beforeVal, afterVal, originalDoc, updatedDoc, fieldName);
+      subLogs = processCustomKeyArrayChanges(
+        subField,
+        beforeVal,
+        afterVal,
+        originalDoc,
+        updatedDoc,
+        fieldName,
+        maskedFields
+      );
     } else {
       subLogs = processGenericFieldChanges(
         subField,
@@ -337,7 +371,8 @@ function processSubFieldChanges(
         updatedDoc,
         fieldName,
         beforeItem,
-        afterItem
+        afterItem,
+        maskedFields
       );
     }
 
@@ -376,12 +411,14 @@ function processSubFieldChanges(
  * @param originalDoc - The original document before changes.
  * @param updatedDoc - The updated document after changes.
  * @param trackedFields - Array of field configurations to track.
+ * @param maskedFields - Masks keyed by full dotted path. Defaults to the masks of the tracked fields.
  * @returns Array of field-level change log objects.
  */
 export function getTrackedChanges(
   originalDoc: Record<string, unknown> | null | undefined,
   updatedDoc: Record<string, unknown> | null | undefined,
-  trackedFields: TrackedField[]
+  trackedFields: TrackedField[],
+  maskedFields: MaskedFields | undefined = extractMaskedFields(trackedFields)
 ): FieldLog[] {
   const allLogs: FieldLog[] = [];
 
@@ -392,11 +429,39 @@ export function getTrackedChanges(
     const afterValue = getValueByPath(updatedDoc, field.value);
     let fieldLogs: FieldLog[] = [];
     if (field.arrayType === 'simple') {
-      fieldLogs = processSimpleArrayChanges(field, beforeValue, afterValue, originalDoc, updatedDoc);
+      fieldLogs = processSimpleArrayChanges(
+        field,
+        beforeValue,
+        afterValue,
+        originalDoc,
+        updatedDoc,
+        null,
+        null,
+        null,
+        maskedFields
+      );
     } else if (field.arrayType === 'custom-key') {
-      fieldLogs = processCustomKeyArrayChanges(field, beforeValue, afterValue, originalDoc, updatedDoc);
+      fieldLogs = processCustomKeyArrayChanges(
+        field,
+        beforeValue,
+        afterValue,
+        originalDoc,
+        updatedDoc,
+        null,
+        maskedFields
+      );
     } else {
-      fieldLogs = processGenericFieldChanges(field, beforeValue, afterValue, originalDoc, updatedDoc);
+      fieldLogs = processGenericFieldChanges(
+        field,
+        beforeValue,
+        afterValue,
+        originalDoc,
+        updatedDoc,
+        null,
+        null,
+        null,
+        maskedFields
+      );
     }
     allLogs.push(...fieldLogs);
   }

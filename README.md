@@ -197,6 +197,7 @@ const Order = mongoose.model<IOrder>('Order', orderSchema);
 | `userField`        | string          | `created_by` | The field in the document to extract user info from (dot notation supported). Value can be any type (object, string, ID, etc.).                        |
 | `compressDocs`     | boolean         | `false`      | Compress `original_doc` and `updated_doc` using gzip.                                                                                                  |
 | `logHistorySaver`  | class           |              | Provide your own implementation to save log histories.                                                                                                 |
+| `maskedFields`     | object          |              | Masks keyed by full dotted field path (see [Masking Sensitive Fields](#masking-sensitive-fields)).                                                     |
 
 ---
 
@@ -363,6 +364,7 @@ Each entry in the array can have the following properties:
 | `arrayKey`      | string       | For `'custom-key'` arrays: the unique key field for each object in the array                |
 | `valueField`    | string       | For `'custom-key'` arrays: the field inside the object to track                             |
 | `contextFields` | array/object | Additional fields to include in the log context for this field (see above)                  |
+| `mask`          | string/func  | Mask for this field's value in log entries and snapshots (see below)                        |
 | `trackedFields` | array        | For nested objects/arrays: additional fields inside the array/object to track               |
 
 **Examples:**
@@ -394,6 +396,39 @@ Each entry in the array can have the following properties:
     ]
   }
   ```
+
+---
+
+### Masking Sensitive Fields
+
+A mask replaces a value before it is stored. It is either a string, stored in place of the value, or a function that takes the value and returns the string to store, such as one that keeps only the last four digits of a card number.
+
+Set a mask in two places:
+
+- `mask` on a tracked field. The path is the field's full path, including its parents in `trackedFields`.
+- The plugin-level `maskedFields` option, an object keyed by full dotted path. Use it for a field that is not tracked: snapshots (`original_doc`, `updated_doc`) contain the whole document, so an untracked field still needs a mask there.
+
+Both sets of masks are merged. On the same path, `maskedFields` wins.
+
+A mask applies to:
+
+- `original_doc` and `updated_doc`.
+- Log entries. A mask on a path also covers every path under it. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
+
+```js
+schema.plugin(changeLoggingPlugin, {
+  modelName: 'Account',
+  saveWholeDoc: true,
+  trackedFields: [
+    { value: 'name' },
+    { value: 'card', trackedFields: [{ value: 'number', mask: (v) => `****${String(v).slice(-4)}` }] },
+  ],
+  // `ssn` is not tracked, but its value must not reach the snapshots.
+  maskedFields: { ssn: '****' },
+});
+```
+
+Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`.
 
 ---
 
@@ -535,9 +570,9 @@ If you need to log changes manually (for example, in custom flows or scripts whe
 
 ---
 
-#### `getTrackedChanges(originalDoc, updatedDoc, trackedFields)`
+#### `getTrackedChanges(originalDoc, updatedDoc, trackedFields, maskedFields?)`
 
-Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration.
+Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` defaults to the masks set on the tracked fields.
 
 **Example:**
 

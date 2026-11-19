@@ -170,6 +170,13 @@ export interface PluginOptions {
   compressDocs?: boolean;
 
   /**
+   * Masks keyed by full dotted field path, applied to `original_doc`/`updated_doc` snapshots
+   * and to logged values. Merged with the `mask` of each tracked field; on the same path, this option wins.
+   * Use it to mask a field that is not tracked, so its value never reaches the snapshots.
+   */
+  maskedFields?: MaskedFields;
+
+  /**
    * Custom log history saver implementation.  If not provided, uses the default saver that writes to MongoDB.
    */
   logHistorySaver?: LogHistorySaver;

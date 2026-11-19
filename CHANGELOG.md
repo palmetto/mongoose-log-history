@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `maskedFields` plugin option: masks keyed by full dotted path, merged with the masks of tracked fields. It masks fields that are not tracked in `original_doc` and `updated_doc`.
+- Optional `maskedFields` argument to `getTrackedChanges`.
+
+### Fixed
+
+- A changed object or array logged as one value now has the masks on its nested paths applied before it is stringified. Before, a whole-subdocument update logged masked sub-fields in plaintext.
+- The `valueField` of an added or removed `custom-key` array item now uses the mask on its path.
+- A mask on a path now also masks log entries for paths under it.
+
 ## [1.1.0] - 2025-10-27
 
 ### Changed

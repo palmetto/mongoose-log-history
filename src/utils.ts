@@ -400,6 +400,18 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
   if (options.modelKeyId !== undefined && typeof options.modelKeyId !== 'string') {
     throw new Error('[mongoose-log-history] "modelKeyId" must be a string.');
   }
+
+  if (options.maskedFields !== undefined) {
+    if (!isObject(options.maskedFields)) {
+      throw new Error('[mongoose-log-history] "maskedFields" must be an object of field paths to masks.');
+    }
+
+    for (const [path, mask] of Object.entries(options.maskedFields)) {
+      if (typeof mask !== 'string' && typeof mask !== 'function') {
+        throw new Error(`[mongoose-log-history] "maskedFields.${path}" must be a string or a function.`);
+      }
+    }
+  }
 }
 
 /**
@@ -449,6 +461,55 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
   }
 
   return obj;
+}
+
+/**
+ * Find the mask that covers a path: the mask on the path itself or on its nearest masked ancestor.
+ * An ancestor wins because snapshots replace a masked object whole, so nothing under it is visible.
+ * @param path - The full dotted path, without array indexes.
+ * @param maskedFields - Masks keyed by full dotted path.
+ * @returns The covering mask, or undefined if the path is not masked.
+ */
+function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
+  if (!maskedFields) {
+    return undefined;
+  }
+
+  let prefix = '';
+  for (const segment of path.split('.')) {
+    prefix = prefix ? `${prefix}.${segment}` : segment;
+    if (maskedFields[prefix] !== undefined) {
+      return maskedFields[prefix];
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Convert a value to its string representation for a log entry, applying every mask that covers it.
+ * A mask on the path (or an ancestor) replaces the whole value. Otherwise, for an object or array value,
+ * masks on paths under it are applied to its nested values before it is stringified.
+ * @param val - The value to convert.
+ * @param path - The full dotted path of the value, without array indexes.
+ * @param fieldMask - The tracked field's own mask, used when no entry in `maskedFields` covers the path.
+ * @param maskedFields - Masks keyed by full dotted path.
+ * @returns String representation of the masked value.
+ */
+export function maskedValueToString(
+  val: unknown,
+  path: string,
+  fieldMask?: Mask,
+  maskedFields?: MaskedFields
+): string | null | undefined {
+  const mask = findMask(path, maskedFields) ?? fieldMask;
+  if (mask !== undefined || !maskedFields || val === null || typeof val !== 'object') {
+    return valueToString(val, mask);
+  }
+
+  const prefix = `${path}.`;
+  const masksNestedPath = Object.keys(maskedFields).some((key) => key.startsWith(prefix));
+  return valueToString(masksNestedPath ? deepClone(val, maskedFields, path) : val);
 }
 
 /**

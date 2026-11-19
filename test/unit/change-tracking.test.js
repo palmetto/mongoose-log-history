@@ -151,6 +151,30 @@ describe('change-tracking', () => {
       const trackedFields = [{ value: 'status' }];
       expect(getTrackedChanges(undefined, undefined, trackedFields).length).toBe(0);
     });
+
+    it('masks nested values of a changed object using the masks of its tracked sub-fields', () => {
+      const trackedFields = [{ value: 'card', trackedFields: [{ value: 'number', mask: '****' }] }];
+      const changes = getTrackedChanges(
+        { card: { number: '4000000000000002', brand: 'visa' } },
+        { card: { number: '4111111111111111', brand: 'visa' } },
+        trackedFields
+      );
+      expect(changes.length).toBe(1);
+      expect(changes[0].from_value).toBe('{"number":"****","brand":"visa"}');
+      expect(changes[0].to_value).toBe('{"number":"****","brand":"visa"}');
+    });
+
+    it('applies a mask on an ancestor path to a tracked dotted field', () => {
+      const changes = getTrackedChanges(
+        { card: { number: '4000' } },
+        { card: { number: '4111' } },
+        [{ value: 'card.number' }],
+        {
+          card: '[card]',
+        }
+      );
+      expect(changes[0]).toMatchObject({ field_name: 'card.number', from_value: '[card]', to_value: '[card]' });
+    });
   });
 
   describe('extractLogContext', () => {

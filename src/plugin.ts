@@ -167,6 +167,15 @@ export function buildLogEntry(
   return entry;
 }
 
+/**
+ * Merge the masks extracted from tracked fields with the explicit `maskedFields` option.
+ * On the same path, the explicit mask wins.
+ */
+function mergeMaskedFields(fromTracked?: MaskedFields, explicit?: MaskedFields): MaskedFields | undefined {
+  const merged = { ...fromTracked, ...explicit };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -220,7 +229,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
-    this.maskedFields = extractMaskedFields(this.trackedFields);
+    this.maskedFields = mergeMaskedFields(extractMaskedFields(this.trackedFields), options.maskedFields);
     this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
     this.allowAccessToLogHistory = !options.logHistorySaver;
   }
@@ -551,7 +560,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
       changes = getTrackedChanges(
         originalData as Record<string, unknown>,
         updatedData as Record<string, unknown>,
-        this.trackedFields
+        this.trackedFields,
+        this.maskedFields
       );
 
       if (changes.length === 0) {
@@ -605,7 +615,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           changes = getTrackedChanges(
             params.originalData as Record<string, unknown>,
             params.updatedData as Record<string, unknown>,
-            this.trackedFields
+            this.trackedFields,
+            this.maskedFields
           );
 
           if (!changes.length) {
