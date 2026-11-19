@@ -10,6 +10,8 @@ const {
   diffSimpleArray,
   setByPath,
   valueToString,
+  mergeMaskedFields,
+  deepClone,
 } = require('../../dist/utils');
 
 describe('utils', () => {
@@ -211,6 +213,49 @@ describe('utils', () => {
       const maskFn = (val) => 'X'.repeat(String(val).length);
       expect(valueToString('secret', maskFn)).toBe('XXXXXX');
       expect(valueToString(12345, maskFn)).toBe('XXXXX');
+    });
+  });
+
+  describe('mergeMaskedFields', () => {
+    it('drops array indexes from mask paths and lets explicit masks win', () => {
+      const masks = mergeMaskedFields(
+        [
+          { value: 'cards.0.cvc', mask: 'tracked' },
+          { value: 'ssn', mask: 'tracked' },
+        ],
+        {
+          ssn: 'explicit',
+          'cards.$.pin': 'explicit',
+        }
+      );
+      expect(masks).toEqual({ 'cards.cvc': 'tracked', ssn: 'explicit', 'cards.pin': 'explicit' });
+    });
+
+    it('lets an explicit mask win over a tracked mask whose indexed path normalizes to the same path', () => {
+      const masks = mergeMaskedFields(
+        [
+          { value: 'cards', trackedFields: [{ value: 'number', mask: 'tracked' }] },
+          { value: 'cards.0.number', mask: 'tracked indexed' },
+        ],
+        { 'cards.number': 'explicit' }
+      );
+      expect(masks).toEqual({ 'cards.number': 'explicit' });
+    });
+  });
+
+  describe('deepClone', () => {
+    it('does not call a function mask on an ancestor path for a dotted key under it', () => {
+      const cloned = deepClone({ 'bank.account': '123456789' }, { bank: (v) => v.account.slice(-4) });
+      expect(cloned).toEqual({ 'bank.account': '****' });
+    });
+
+    it('uses the most specific mask for a dotted key and replaces a masked object whole', () => {
+      const masks = { bank: 'bank-mask', 'bank.routing': 'routing-mask' };
+      expect(deepClone({ 'bank.routing': '021000021', 'bank.account': '123456789' }, masks)).toEqual({
+        'bank.routing': 'routing-mask',
+        'bank.account': 'bank-mask',
+      });
+      expect(deepClone({ bank: { routing: '021000021', account: '123456789' } }, masks)).toEqual({ bank: 'bank-mask' });
     });
   });
 });

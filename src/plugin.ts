@@ -28,7 +28,15 @@ import {
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
 import { compressObject, decompressObject } from './compression';
-import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClone, extractMaskedFields } from './utils';
+import {
+  getValueByPath,
+  arrayToKeyMap,
+  isEqual,
+  validatePluginOptions,
+  deepClone,
+  mergeMaskedFields,
+  toPlainObject,
+} from './utils';
 import { saveLogHistories } from './saver';
 
 /**
@@ -220,7 +228,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
-    this.maskedFields = extractMaskedFields(this.trackedFields);
+    this.maskedFields = mergeMaskedFields(this.trackedFields, options.maskedFields);
     this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
     this.allowAccessToLogHistory = !options.logHistorySaver;
   }
@@ -551,7 +559,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
       changes = getTrackedChanges(
         originalData as Record<string, unknown>,
         updatedData as Record<string, unknown>,
-        this.trackedFields
+        this.trackedFields,
+        this.maskedFields
       );
 
       if (changes.length === 0) {
@@ -561,7 +570,10 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
       context = extractLogContext(
         this.contextFields,
         originalData as Record<string, unknown>,
-        updatedData as Record<string, unknown>
+        updatedData as Record<string, unknown>,
+        null,
+        null,
+        this.maskedFields
       );
     }
 
@@ -605,7 +617,8 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           changes = getTrackedChanges(
             params.originalData as Record<string, unknown>,
             params.updatedData as Record<string, unknown>,
-            this.trackedFields
+            this.trackedFields,
+            this.maskedFields
           );
 
           if (!changes.length) {
@@ -615,7 +628,10 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           context = extractLogContext(
             this.contextFields,
             params.originalData as Record<string, unknown>,
-            params.updatedData as Record<string, unknown>
+            params.updatedData as Record<string, unknown>,
+            null,
+            null,
+            this.maskedFields
           );
         }
 
@@ -875,7 +891,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             modelId: modelId!,
             changeType: 'create',
             user,
-            updatedData: doc.toObject(),
+            updatedData: toPlainObject(doc),
           });
         } else {
           const originalDoc = (await (doc.constructor as Model<Document>)
@@ -901,7 +917,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           await self.saveLogHistory({
             modelId: modelId!,
             originalData: originalDoc,
-            updatedData: doc.toObject(),
+            updatedData: toPlainObject(doc),
             changeType,
             user,
           });
@@ -950,7 +966,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
               logEntryParams.push({
                 modelId: modelId!,
                 changeType: 'create',
-                updatedData: doc.toObject ? doc.toObject() : doc,
+                updatedData: doc instanceof Document ? toPlainObject(doc) : doc,
                 user: userData,
               });
             }

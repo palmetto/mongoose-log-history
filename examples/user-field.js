@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { changeLoggingPlugin } = require('mongoose-log-history');
+const { changeLoggingPlugin, getLogHistoryModel } = require('mongoose-log-history');
 
 async function main() {
   await mongoose.connect('mongodb://localhost:27017/mongoose_log_history_example');
@@ -22,7 +22,7 @@ async function main() {
   order.status = 'done';
   await order.save();
 
-  const LogHistory = mongoose.model('LogHistory', mongoose.Schema({}, { strict: false }), 'log_histories');
+  const LogHistory = getLogHistoryModel('OrderUserField', true);
   const logs = await LogHistory.find({ model_id: order._id }).lean();
   console.log('User field log (user.name):\n', JSON.stringify(logs, null, 2));
   // "created_by": "Alice"

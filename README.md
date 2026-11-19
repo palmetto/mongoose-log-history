@@ -197,6 +197,7 @@ const Order = mongoose.model<IOrder>('Order', orderSchema);
 | `userField`        | string          | `created_by` | The field in the document to extract user info from (dot notation supported). Value can be any type (object, string, ID, etc.).                        |
 | `compressDocs`     | boolean         | `false`      | Compress `original_doc` and `updated_doc` using gzip.                                                                                                  |
 | `logHistorySaver`  | class           |              | Provide your own implementation to save log histories.                                                                                                 |
+| `maskedFields`     | object          |              | Masks keyed by full dotted field path (see [Masking Sensitive Fields](#masking-sensitive-fields)).                                                     |
 
 ---
 
@@ -363,6 +364,7 @@ Each entry in the array can have the following properties:
 | `arrayKey`      | string       | For `'custom-key'` arrays: the unique key field for each object in the array                |
 | `valueField`    | string       | For `'custom-key'` arrays: the field inside the object to track                             |
 | `contextFields` | array/object | Additional fields to include in the log context for this field (see above)                  |
+| `mask`          | string/func  | Mask for this field's value in log entries, context, and snapshots (see below)              |
 | `trackedFields` | array        | For nested objects/arrays: additional fields inside the array/object to track               |
 
 **Examples:**
@@ -394,6 +396,46 @@ Each entry in the array can have the following properties:
     ]
   }
   ```
+
+---
+
+### Masking Sensitive Fields
+
+A mask replaces a value before it is stored. It is either a string, stored in place of the value, or a function that takes the value and returns the string to store, such as one that keeps only the last four digits of a card number.
+
+Set a mask in two places:
+
+- `mask` on a tracked field. The path is the field's full path, including its parents in `trackedFields`.
+- The plugin-level `maskedFields` option, an object keyed by full dotted path. Use it for a field that is not tracked: snapshots (`original_doc`, `updated_doc`) contain the whole document, so an untracked field still needs a mask there.
+
+Both sets of masks are merged. On the same path, `maskedFields` wins.
+
+A mask on a path also covers every path under it, unless a path under it has its own mask: the most specific mask wins. A function mask receives only the value at its own path, so a path under it is stored as `****`. In `original_doc` and `updated_doc`, a masked object is replaced whole, so the masks under it never show. A mask applies everywhere a document value is stored:
+
+- `original_doc` and `updated_doc`, including keys an update sets by a dotted or positional path, such as `card.number` or `cards.$.number`.
+- The `from_value` and `to_value` of log entries. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
+- Values copied into a log entry's `context` by `contextFields`: the plugin-level option, and a tracked field's own, from the document or from an array item.
+
+A null or undefined value is stored as is, and a function mask is never called with one.
+
+Snapshots hold stored fields only: virtuals, aliases, `toObject` transforms, and populated documents are left out, whatever the schema's `toObject` options are.
+
+Mask paths are stored field paths. A value written through a schema alias, such as `$set: { socialNumber }` for `ssn`, is not masked, so write sensitive fields by their paths.
+
+```js
+schema.plugin(changeLoggingPlugin, {
+  modelName: 'Account',
+  saveWholeDoc: true,
+  trackedFields: [
+    { value: 'name' },
+    { value: 'card', trackedFields: [{ value: 'number', mask: (v) => `****${String(v).slice(-4)}` }] },
+  ],
+  // `ssn` is not tracked, but its value must not reach the snapshots.
+  maskedFields: { ssn: '****' },
+});
+```
+
+Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`. An index or positional operator in a mask path, such as `items.0.secret` on a tracked field or `items.$.secret` in `maskedFields`, is ignored, so the mask covers every element.
 
 ---
 
@@ -535,9 +577,9 @@ If you need to log changes manually (for example, in custom flows or scripts whe
 
 ---
 
-#### `getTrackedChanges(originalDoc, updatedDoc, trackedFields)`
+#### `getTrackedChanges(originalDoc, updatedDoc, trackedFields, maskedFields?)`
 
-Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration.
+Returns an array of change log objects describing the differences between two documents, according to your tracked fields configuration. `maskedFields` is merged with the masks set on the tracked fields; on the same path, `maskedFields` wins. The masks apply to the returned `from_value`, `to_value`, and `context`.
 
 **Example:**
 
@@ -549,7 +591,31 @@ const changes = getTrackedChanges(originalDoc, updatedDoc, trackedFields);
 
 ---
 
-#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs)`
+#### `extractLogContext(contextFields, originalDoc, updatedDoc, beforeItem?, afterItem?, maskedFields?, itemPath?)`
+
+Builds a `context` object from `contextFields`, in the same shape the plugin stores. Pass it as the `context` of `buildLogEntry`.
+
+- `contextFields`: An array of document paths, or an object with `doc` (document paths) and `item` (paths inside an array item).
+- `originalDoc`, `updatedDoc`: The documents. A path is read from `updatedDoc` first, then from `originalDoc`.
+- `beforeItem`, `afterItem`: The array item, for `item` paths. `afterItem` is read first.
+- `maskedFields`: Masks applied to the extracted values (see [Masking Sensitive Fields](#masking-sensitive-fields)).
+- `itemPath`: The full path of the array that holds the item, so masks on its fields apply to `item` values.
+
+Returns `undefined` when `contextFields` is not set.
+
+**Example:**
+
+```js
+const { extractLogContext } = require('mongoose-log-history');
+
+const doc = { user: { name: 'Alice', ssn: '123-45-6789' }, org: { id: 7 } };
+const context = extractLogContext(['user', 'org.id'], doc, doc, null, null, { 'user.ssn': '****' });
+// { doc: { user: { name: 'Alice', ssn: '****' }, org: { id: 7 } } }
+```
+
+---
+
+#### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs, maskedFields)`
 
 Builds a log entry object compatible with the plugin’s log schema.
 
@@ -568,7 +634,8 @@ const logEntry = buildLogEntry(
   updatedDoc,
   context,
   false, // saveWholeDoc
-  false // compressDocs
+  false, // compressDocs
+  { 'card.number': '****' } // maskedFields
 );
 ```
 
@@ -582,6 +649,7 @@ const logEntry = buildLogEntry(
 - `context`: Additional context fields.
 - `saveWholeDoc`: Save full doc snapshots.
 - `compressDocs`: Compress doc snapshots.
+- `maskedFields`: Masks applied to `originalDoc` and `updatedDoc` (see [Masking Sensitive Fields](#masking-sensitive-fields)). `buildLogEntry` does not know your plugin options, so pass the masks yourself; without them, snapshots are stored unmasked.
 
 ---
 

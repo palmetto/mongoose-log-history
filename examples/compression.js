@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { changeLoggingPlugin, decompressObject } = require('mongoose-log-history');
+const { changeLoggingPlugin, decompressObject, getLogHistoryModel } = require('mongoose-log-history');
 
 async function main() {
   await mongoose.connect('mongodb://localhost:27017/mongoose_log_history_example');
@@ -20,7 +20,7 @@ async function main() {
   order.data = 'bar';
   await order.save();
 
-  const LogHistory = mongoose.model('LogHistory', mongoose.Schema({}, { strict: false }), 'log_histories');
+  const LogHistory = getLogHistoryModel('OrderCompression', true);
   const log = await LogHistory.findOne({ model_id: order._id, change_type: 'update' });
   const orig = decompressObject(log.original_doc._bsontype === 'Binary' ? log.original_doc.buffer : log.original_doc);
   const updated = decompressObject(log.updated_doc._bsontype === 'Binary' ? log.updated_doc.buffer : log.updated_doc);
@@ -28,8 +28,8 @@ async function main() {
   console.log('Decompressed original:', orig);
   console.log('Decompressed updated:', updated);
   // Example:
-  // Decompressed original: { status: 'pending', data: 'foo' }
-  // Decompressed updated: { status: 'done', data: 'bar' }
+  // Decompressed original: { _id: '...', status: 'pending' }
+  // Decompressed updated: { status: 'done', data: 'bar', _id: '...', __v: 0 }
 
   await mongoose.disconnect();
 }

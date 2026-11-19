@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ArrayDiff, Mask, MaskedFields, PluginOptions, TrackedField } from './types';
 
 /**
@@ -13,6 +13,9 @@ const TIME_UNITS = {
   M: 30 * 24 * 60 * 60 * 1000, // months
   y: 365 * 24 * 60 * 60 * 1000, // years
 } as const;
+
+const ARRAY_ELEMENT_SEGMENT = /^(\d+|\$|\$\[[^\]]*\])$/;
+const ANCESTOR_FUNCTION_MASK = '****';
 
 /**
  * Check if a value is a Date object.
@@ -400,10 +403,51 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
   if (options.modelKeyId !== undefined && typeof options.modelKeyId !== 'string') {
     throw new Error('[mongoose-log-history] "modelKeyId" must be a string.');
   }
+
+  if (options.maskedFields !== undefined) {
+    if (!isObject(options.maskedFields)) {
+      throw new Error('[mongoose-log-history] "maskedFields" must be an object of field paths to masks.');
+    }
+
+    for (const [path, mask] of Object.entries(options.maskedFields)) {
+      if (typeof mask !== 'string' && typeof mask !== 'function') {
+        throw new Error(`[mongoose-log-history] "maskedFields.${path}" must be a string or a function.`);
+      }
+    }
+  }
+}
+
+function normalizeMaskPath(path: string): string {
+  return path
+    .split('.')
+    .filter((segment) => !ARRAY_ELEMENT_SEGMENT.test(segment))
+    .join('.');
+}
+
+function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
+  if (!maskedFields) {
+    return undefined;
+  }
+
+  const fullPath = normalizeMaskPath(path);
+  const segments = fullPath.split('.');
+  for (let length = segments.length; length > 0; length--) {
+    const prefix = segments.slice(0, length).join('.');
+    if (Object.prototype.hasOwnProperty.call(maskedFields, prefix)) {
+      const mask = maskedFields[prefix];
+      return typeof mask === 'function' && prefix !== fullPath ? ANCESTOR_FUNCTION_MASK : mask;
+    }
+  }
+
+  return undefined;
 }
 
 /**
- * Deep clone an object to prevent mutations.
+ * Deep clone an object to prevent mutations, replacing every masked value.
+ * A key is masked when its full path, or an ancestor of it, has a mask. Keys that hold a dotted path,
+ * such as `card.number` or `cards.$.number` from an update, are matched the same way.
+ * A masked key whose value is null or undefined keeps that value.
+ * A Mongoose document is cloned from `toPlainObject()`, so its paths match the schema's.
  * @param obj - The object to clone.
  * @param maskedFields - Optional mapping of field paths to masked values or functions.
  * @param parentPath - The parent path for the current object (used for masking).
@@ -422,6 +466,10 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
     return obj as T;
   }
 
+  if (obj instanceof Document) {
+    return deepClone(toPlainObject(obj), maskedFields, parentPath) as T;
+  }
+
   if (Array.isArray(obj)) {
     return obj.map((item) => deepClone(item, maskedFields, parentPath)) as T;
   }
@@ -430,17 +478,10 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
     const cloned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = parentPath ? `${parentPath}.${key}` : key;
-      if (maskedFields) {
-        const mask = maskedFields[fullKey];
-        if (mask !== undefined) {
-          if (typeof mask === 'function') {
-            cloned[key] = mask(value);
-          } else {
-            cloned[key] = mask;
-          }
-
-          continue;
-        }
+      const mask = findMask(fullKey, maskedFields);
+      if (mask !== undefined) {
+        cloned[key] = valueToString(value, mask);
+        continue;
       }
 
       cloned[key] = deepClone(value, maskedFields, fullKey);
@@ -449,6 +490,51 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
   }
 
   return obj;
+}
+
+export function maskedValueToString(
+  val: unknown,
+  path: string,
+  maskedFields?: MaskedFields
+): string | null | undefined {
+  const mask = findMask(path, maskedFields);
+  if (mask !== undefined || !maskedFields || val === null || typeof val !== 'object') {
+    return valueToString(val, mask);
+  }
+
+  const prefix = `${normalizeMaskPath(path)}.`;
+  const masksNestedPath = Object.keys(maskedFields).some((key) => key.startsWith(prefix));
+  return valueToString(masksNestedPath ? deepClone(val, maskedFields, path) : val);
+}
+
+const PLAIN_OBJECT_OPTIONS = {
+  virtuals: false,
+  getters: false,
+  transform: false,
+  depopulate: true,
+  flattenMaps: true,
+} as const;
+
+/**
+ * Convert a Mongoose document to the plain object stored in history: stored paths only, whatever the schema's
+ * `toObject` options say. Virtuals and aliases, transforms, and populated documents would otherwise add values
+ * under paths that no mask covers.
+ * @param doc - The Mongoose document.
+ * @returns The document's stored fields as a plain object.
+ */
+export function toPlainObject(doc: Document): Record<string, unknown> {
+  return doc.toObject(PLAIN_OBJECT_OPTIONS);
+}
+
+export function mergeMaskedFields(trackedFields: TrackedField[], explicit?: MaskedFields): MaskedFields | undefined {
+  const merged: MaskedFields = {};
+  for (const masks of [extractMaskedFields(trackedFields), explicit]) {
+    for (const [path, mask] of Object.entries(masks ?? {})) {
+      merged[normalizeMaskPath(path)] = mask;
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 /**
