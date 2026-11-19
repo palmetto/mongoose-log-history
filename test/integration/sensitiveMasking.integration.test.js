@@ -10,6 +10,8 @@ const OLD_CVC = '987';
 const NEW_CVC = '123';
 const OLD_NOTE = 'old private note';
 const NEW_NOTE = 'new private note';
+const OLD_ACCOUNT = '000123456789';
+const NEW_ACCOUNT = '000987654321';
 
 function expectNoPlaintext(history, secrets) {
   const stored = JSON.stringify({
@@ -36,12 +38,13 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
         brand: String,
       },
       cards: [{ _id: false, id: String, number: String, label: String }],
+      bank: { account: String, routing: String },
     });
 
     accountSchema.plugin(changeLoggingPlugin, {
       modelName: 'Account',
       trackedFields: [
-        { value: 'name' },
+        { value: 'name', contextFields: ['card', 'notes', 'bank.account'] },
         {
           value: 'card',
           trackedFields: [{ value: 'number', mask: lastFour }, { value: 'cvc', mask: '****' }, { value: 'brand' }],
@@ -51,10 +54,11 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
           arrayType: 'custom-key',
           arrayKey: 'id',
           valueField: 'number',
+          contextFields: { item: ['number'] },
           trackedFields: [{ value: 'number', mask: lastFour }, { value: 'label' }],
         },
       ],
-      maskedFields: { notes: '[redacted]' },
+      maskedFields: { notes: '[redacted]', bank: '****' },
       singleCollection: true,
       saveWholeDoc: true,
     });
@@ -115,6 +119,42 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     expectNoPlaintext(history, [OLD_CARD, NEW_CARD]);
   });
 
+  it('masks context values copied from the document', async () => {
+    const account = await Account.create({
+      name: 'a',
+      notes: OLD_NOTE,
+      card: { number: OLD_CARD, cvc: OLD_CVC },
+      bank: { account: OLD_ACCOUNT },
+    });
+    await Account.updateOne({ _id: account._id }, { $set: { name: 'b' } });
+    await wait();
+
+    const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
+    expect(history.logs[0].context.doc).toEqual({
+      card: { number: '****0002', cvc: '****' },
+      notes: '[redacted]',
+      bank: '****',
+    });
+    expectNoPlaintext(history, [OLD_CARD, OLD_CVC, OLD_NOTE, OLD_ACCOUNT]);
+  });
+
+  it('masks values set through dotted and positional update paths in snapshots', async () => {
+    const account = await Account.create({
+      name: 'a',
+      bank: { account: OLD_ACCOUNT },
+      cards: [{ id: 'c1', number: OLD_CARD, label: 'x' }],
+    });
+    await Account.updateOne(
+      { _id: account._id, 'cards.id': 'c1' },
+      { $set: { name: 'b', 'bank.account': NEW_ACCOUNT, 'cards.$.number': NEW_CARD, 'cards.0.label': 'y' } }
+    );
+    await wait();
+
+    const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
+    expect(history).not.toBeNull();
+    expectNoPlaintext(history, [OLD_ACCOUNT, NEW_ACCOUNT, OLD_CARD, NEW_CARD]);
+  });
+
   it('masks tracked fields of custom-key array items that change in place', async () => {
     const account = await Account.create({ name: 'a', cards: [{ id: 'c1', number: OLD_CARD, label: 'x' }] });
     await Account.updateOne({ _id: account._id }, { $set: { cards: [{ id: 'c1', number: NEW_CARD, label: 'x' }] } });
@@ -157,5 +197,19 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     expect(() => {
       schema.plugin(changeLoggingPlugin, { modelName: 'Bad', trackedFields: [], maskedFields: { name: 1 } });
     }).toThrow(/maskedFields/);
+    expect(() => {
+      schema.plugin(changeLoggingPlugin, {
+        modelName: 'Bad',
+        trackedFields: [],
+        maskedFields: { 'cards.0.number': '*' },
+      });
+    }).toThrow(/without array indexes/);
+    expect(() => {
+      schema.plugin(changeLoggingPlugin, {
+        modelName: 'Bad',
+        trackedFields: [],
+        maskedFields: { 'cards.$.number': '*' },
+      });
+    }).toThrow(/without array indexes/);
   });
 });

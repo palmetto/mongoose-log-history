@@ -175,6 +175,79 @@ describe('change-tracking', () => {
       );
       expect(changes[0]).toMatchObject({ field_name: 'card.number', from_value: '[card]', to_value: '[card]' });
     });
+
+    it('keeps the masks of tracked sub-fields when maskedFields is passed', () => {
+      const trackedFields = [
+        { value: 'card', trackedFields: [{ value: 'number', mask: '****' }] },
+        {
+          value: 'cards',
+          arrayType: 'custom-key',
+          arrayKey: 'id',
+          valueField: 'number',
+          trackedFields: [{ value: 'number', mask: '****' }],
+        },
+      ];
+      const changes = getTrackedChanges(
+        { card: { number: '4000000000000002' }, cards: [] },
+        { card: { number: '4111111111111111' }, cards: [{ id: 'c1', number: '4222222222222220' }] },
+        trackedFields,
+        { ssn: '****' }
+      );
+      expect(changes.map((c) => [c.field_name, c.from_value, c.to_value])).toEqual([
+        ['card', '{"number":"****"}', '{"number":"****"}'],
+        ['cards', null, '****'],
+      ]);
+    });
+
+    it('masks objects in a simple array', () => {
+      const changes = getTrackedChanges(
+        { tokens: [{ kind: 'a', secret: 's1' }] },
+        { tokens: [{ kind: 'b', secret: 's2' }] },
+        [{ value: 'tokens', arrayType: 'simple' }],
+        { 'tokens.secret': '****' }
+      );
+      expect(changes.map((c) => c.from_value ?? c.to_value).sort()).toEqual([
+        '{"kind":"a","secret":"****"}',
+        '{"kind":"b","secret":"****"}',
+      ]);
+    });
+
+    it('masks doc context values, including values under a masked ancestor', () => {
+      const changes = getTrackedChanges(
+        { name: 'a', card: { number: '4000000000000002' }, bank: { account: '123456789' } },
+        { name: 'b', card: { number: '4000000000000002' }, bank: { account: '123456789' } },
+        [{ value: 'name', contextFields: ['card', 'bank.account'] }],
+        { 'card.number': '****', bank: '[bank]' }
+      );
+      expect(changes[0].context).toEqual({ doc: { card: { number: '****' }, bank: '[bank]' } });
+    });
+
+    it('does not treat Object.prototype members as masks', () => {
+      const changes = getTrackedChanges({ toString: 'a' }, { toString: 'b' }, [{ value: 'toString' }], {
+        other: '****',
+      });
+      expect(changes[0]).toMatchObject({ field_name: 'toString', from_value: 'a', to_value: 'b' });
+    });
+
+    it('masks item context values of custom-key array items', () => {
+      const trackedFields = [
+        {
+          value: 'cards',
+          arrayType: 'custom-key',
+          arrayKey: 'id',
+          valueField: 'label',
+          contextFields: { item: ['number', 'label'] },
+          trackedFields: [{ value: 'number', mask: '****' }, { value: 'label' }],
+        },
+      ];
+      const changes = getTrackedChanges(
+        { cards: [{ id: 'c1', number: '4000000000000002', label: 'old' }] },
+        { cards: [{ id: 'c1', number: '4000000000000002', label: 'new' }] },
+        trackedFields
+      );
+      expect(changes).toHaveLength(1);
+      expect(changes[0].context).toEqual({ item: { number: '****', label: 'new' } });
+    });
   });
 
   describe('extractLogContext', () => {
