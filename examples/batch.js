@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { changeLoggingPlugin } = require('mongoose-log-history');
+const { changeLoggingPlugin, getLogHistoryModel } = require('mongoose-log-history');
 
 async function main() {
   await mongoose.connect('mongodb://localhost:27017/mongoose_log_history_example');
@@ -19,7 +19,7 @@ async function main() {
 
   await Order.updateMany({}, { $set: { status: 'done' } });
 
-  const LogHistory = mongoose.model('LogHistory', mongoose.Schema({}, { strict: false }), 'log_histories');
+  const LogHistory = getLogHistoryModel('OrderBatch', true);
   const logs = await LogHistory.find({ change_type: 'update' }).lean();
   console.log('Batch update logs (maxBatchLog=2):\n', JSON.stringify(logs, null, 2));
   // Example: Only 2 logs due to maxBatchLog

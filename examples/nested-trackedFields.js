@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { changeLoggingPlugin } = require('mongoose-log-history');
+const { changeLoggingPlugin, getLogHistoryModel } = require('mongoose-log-history');
 
 async function main() {
   await mongoose.connect('mongodb://localhost:27017/mongoose_log_history_example');
@@ -52,7 +52,7 @@ async function main() {
   order.items = [{ sku: 'A', details: { color: 'green', size: 'M' }, qty: 2 }];
   await order.save();
 
-  const LogHistory = mongoose.model('LogHistory', mongoose.Schema({}, { strict: false }), 'log_histories');
+  const LogHistory = getLogHistoryModel('OrderNested', true);
   const logs = await LogHistory.find({ model_id: order._id }).lean();
   console.log('Nested trackedFields log:\n', JSON.stringify(logs, null, 2));
   // Example log entry:
@@ -62,7 +62,7 @@ async function main() {
   //       { "field_name": "customer.name", "from_value": "Alice", "to_value": "Bob", "change_type": "edit" },
   //       { "field_name": "customer.address.city", "from_value": "Jakarta", "to_value": "Bandung", "change_type": "edit" },
   //       { "field_name": "items.details.color", "from_value": "red", "to_value": "green", "change_type": "edit" },
-  //       { "field_name": "items.qty", "from_value": 1, "to_value": 2, "change_type": "edit" }
+  //       { "field_name": "items.qty", "from_value": "1", "to_value": "2", "change_type": "edit" }
   //     ],
   //     ...
   //   }

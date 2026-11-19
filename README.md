@@ -591,6 +591,30 @@ const changes = getTrackedChanges(originalDoc, updatedDoc, trackedFields);
 
 ---
 
+#### `extractLogContext(contextFields, originalDoc, updatedDoc, beforeItem?, afterItem?, maskedFields?, itemPath?)`
+
+Builds a `context` object from `contextFields`, in the same shape the plugin stores. Pass it as the `context` of `buildLogEntry`.
+
+- `contextFields`: An array of document paths, or an object with `doc` (document paths) and `item` (paths inside an array item).
+- `originalDoc`, `updatedDoc`: The documents. A path is read from `updatedDoc` first, then from `originalDoc`.
+- `beforeItem`, `afterItem`: The array item, for `item` paths. `afterItem` is read first.
+- `maskedFields`: Masks applied to the extracted values (see [Masking Sensitive Fields](#masking-sensitive-fields)).
+- `itemPath`: The full path of the array that holds the item, so masks on its fields apply to `item` values.
+
+Returns `undefined` when `contextFields` is not set.
+
+**Example:**
+
+```js
+const { extractLogContext } = require('mongoose-log-history');
+
+const doc = { user: { name: 'Alice', ssn: '123-45-6789' }, org: { id: 7 } };
+const context = extractLogContext(['user', 'org.id'], doc, doc, null, null, { 'user.ssn': '****' });
+// { doc: { user: { name: 'Alice', ssn: '****' }, org: { id: 7 } } }
+```
+
+---
+
 #### `buildLogEntry(modelId, modelName, changeType, logs, createdBy, originalDoc, updatedDoc, context, saveWholeDoc, compressDocs, maskedFields)`
 
 Builds a log entry object compatible with the plugin’s log schema.
