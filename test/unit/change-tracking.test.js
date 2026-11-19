@@ -183,7 +183,7 @@ describe('change-tracking', () => {
         [{ value: 'bank.account' }],
         { bank: (v) => v.account.slice(-4) }
       );
-      expect(changes[0]).toMatchObject({ field_name: 'bank.account', from_value: '[masked]', to_value: '[masked]' });
+      expect(changes[0]).toMatchObject({ field_name: 'bank.account', from_value: '****', to_value: '****' });
     });
 
     it('masks nested values of an object at an indexed path', () => {

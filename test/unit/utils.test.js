@@ -245,7 +245,7 @@ describe('utils', () => {
   describe('deepClone', () => {
     it('does not call a function mask on an ancestor path for a dotted key under it', () => {
       const cloned = deepClone({ 'bank.account': '123456789' }, { bank: (v) => v.account.slice(-4) });
-      expect(cloned).toEqual({ 'bank.account': '[masked]' });
+      expect(cloned).toEqual({ 'bank.account': '****' });
     });
   });
 });

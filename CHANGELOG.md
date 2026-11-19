@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A logged object at a path with an array index, such as `slots.0`, now has the masks on its nested paths applied. Before, the index stopped them from matching.
 - An explicit `maskedFields` entry now wins over a tracked field's mask on the same path even when the tracked path has an array index.
 - A masked field whose value is null or undefined, such as a missing `contextFields` path, is now stored as is. Before, a function mask was called with it and could throw, which dropped the history entry.
-- A path under a function mask, such as `bank.account` under a mask on `bank`, is now stored as `[masked]`. Before, the function was called with the nested value, which could throw and drop the history entry.
+- A path under a function mask, such as `bank.account` under a mask on `bank`, is now stored as `****`. Before, the function was called with the nested value, which could throw and drop the history entry.
 
 ## [1.1.0] - 2025-10-27
 

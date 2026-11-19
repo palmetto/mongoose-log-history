@@ -441,7 +441,7 @@ function normalizeMaskPath(path: string): string {
 /**
  * Find the mask that covers a path: the mask on the path itself or on its nearest masked ancestor.
  * An ancestor wins because a masked object is replaced whole, so nothing under it is visible.
- * A function mask on an ancestor is replaced by `'[masked]'`, because a function mask is only called
+ * A function mask on an ancestor is replaced by `'****'`, because a function mask is only called
  * with the value at its own path.
  * @param path - A dotted path. It may contain array indexes and positional operators, such as an update key.
  * @param maskedFields - Masks keyed by full dotted path.
@@ -458,7 +458,7 @@ function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
     prefix = prefix ? `${prefix}.${segment}` : segment;
     if (Object.prototype.hasOwnProperty.call(maskedFields, prefix)) {
       const mask = maskedFields[prefix];
-      return typeof mask === 'function' && prefix !== fullPath ? '[masked]' : mask;
+      return typeof mask === 'function' && prefix !== fullPath ? '****' : mask;
     }
   }
 
