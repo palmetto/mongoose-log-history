@@ -186,6 +186,19 @@ describe('change-tracking', () => {
       expect(changes[0]).toMatchObject({ field_name: 'bank.account', from_value: '****', to_value: '****' });
     });
 
+    it('uses the most specific mask when a path and its ancestor are both masked', () => {
+      const changes = getTrackedChanges(
+        { bank: { account: '123456789', routing: '021000021' } },
+        { bank: { account: '987654321', routing: '011000015' } },
+        [{ value: 'bank.account' }, { value: 'bank.routing' }],
+        { bank: 'bank-mask', 'bank.routing': (v) => `routing-${String(v).slice(-2)}` }
+      );
+      expect(changes.map((c) => [c.field_name, c.from_value, c.to_value])).toEqual([
+        ['bank.account', 'bank-mask', 'bank-mask'],
+        ['bank.routing', 'routing-21', 'routing-15'],
+      ]);
+    });
+
     it('masks nested values of an object at an indexed path', () => {
       const changes = getTrackedChanges(
         { slots: [{ number: '4000000000000002', label: 'a' }] },

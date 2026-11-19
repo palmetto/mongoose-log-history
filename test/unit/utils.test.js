@@ -247,5 +247,14 @@ describe('utils', () => {
       const cloned = deepClone({ 'bank.account': '123456789' }, { bank: (v) => v.account.slice(-4) });
       expect(cloned).toEqual({ 'bank.account': '****' });
     });
+
+    it('uses the most specific mask for a dotted key and replaces a masked object whole', () => {
+      const masks = { bank: 'bank-mask', 'bank.routing': 'routing-mask' };
+      expect(deepClone({ 'bank.routing': '021000021', 'bank.account': '123456789' }, masks)).toEqual({
+        'bank.routing': 'routing-mask',
+        'bank.account': 'bank-mask',
+      });
+      expect(deepClone({ bank: { routing: '021000021', account: '123456789' } }, masks)).toEqual({ bank: 'bank-mask' });
+    });
   });
 });

@@ -410,7 +410,7 @@ Set a mask in two places:
 
 Both sets of masks are merged. On the same path, `maskedFields` wins.
 
-A mask on a path also covers every path under it. A function mask receives only the value at its own path, so a path under it is stored as `****`. A mask applies everywhere a document value is stored:
+A mask on a path also covers every path under it, unless a path under it has its own mask: the most specific mask wins. A function mask receives only the value at its own path, so a path under it is stored as `****`. In `original_doc` and `updated_doc`, a masked object is replaced whole, so the masks under it never show. A mask applies everywhere a document value is stored:
 
 - `original_doc` and `updated_doc`, including keys an update sets by a dotted or positional path, such as `card.number` or `cards.$.number`.
 - The `from_value` and `to_value` of log entries. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
