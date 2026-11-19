@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Schema, Types } from 'mongoose';
 import { ArrayDiff, Mask, MaskedFields, PluginOptions, TrackedField } from './types';
 
 /**
@@ -433,6 +433,13 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
  * @param maskedFields - Masks keyed by full dotted path.
  * @returns The covering mask, or undefined if the path is not masked.
  */
+function normalizeMaskPath(path: string): string {
+  return path
+    .split('.')
+    .filter((segment) => !ARRAY_ELEMENT_SEGMENT.test(segment))
+    .join('.');
+}
+
 function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
   if (!maskedFields) {
     return undefined;
@@ -457,7 +464,7 @@ function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
  * Deep clone an object to prevent mutations, replacing every masked value.
  * A key is masked when its full path, or an ancestor of it, has a mask. Keys that hold a dotted path,
  * such as `card.number` or `cards.$.number` from an update, are matched the same way.
- * A Mongoose document is cloned from `toObject()`, so its paths match the schema's.
+ * A Mongoose document is cloned from `toPlainObject()`, and a Map from its entries, so their paths match the schema's.
  * @param obj - The object to clone.
  * @param maskedFields - Optional mapping of field paths to masked values or functions.
  * @param parentPath - The parent path for the current object (used for masking).
@@ -477,7 +484,11 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
   }
 
   if (obj instanceof Document) {
-    return deepClone(obj.toObject(), maskedFields, parentPath);
+    return deepClone(toPlainObject(obj), maskedFields, parentPath) as T;
+  }
+
+  if (obj instanceof Map) {
+    return deepClone(Object.fromEntries(obj), maskedFields, parentPath) as T;
   }
 
   if (Array.isArray(obj)) {
@@ -526,14 +537,118 @@ export function maskedValueToString(
   return valueToString(masksNestedPath ? deepClone(val, maskedFields, path) : val);
 }
 
+const PLAIN_OBJECT_OPTIONS = {
+  virtuals: false,
+  getters: false,
+  transform: false,
+  depopulate: true,
+  flattenMaps: true,
+} as const;
+
 /**
- * Merge the masks of the tracked fields with explicit masks. On the same path, the explicit mask wins.
+ * Convert a Mongoose document to the plain object stored in history: stored paths only, whatever the schema's
+ * `toObject` options say. Virtuals and aliases, transforms, and populated documents would otherwise add values
+ * under paths that no mask covers.
+ * @param doc - The Mongoose document.
+ * @returns The document's stored fields as a plain object.
+ */
+export function toPlainObject(doc: Document): Record<string, unknown> {
+  return doc.toObject(PLAIN_OBJECT_OPTIONS);
+}
+
+/**
+ * Another spelling of a schema path that uses one or more aliases, such as `socialNumber` for `ssn`.
+ */
+export interface AliasPath {
+  alias: string;
+  path: string;
+}
+
+function schemaAliases(schema: Schema): Record<string, string> {
+  const aliases: unknown = Reflect.get(schema, 'aliases');
+  const result: Record<string, string> = {};
+  if (isObject(aliases)) {
+    for (const [alias, path] of Object.entries(aliases)) {
+      if (typeof path === 'string') {
+        result[alias] = path;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * List every spelling of a schema path that uses an alias, including aliases in subdocument schemas and
+ * combinations of aliases at several levels.
+ * @param schema - The schema the plugin is registered on.
+ * @returns The alias spellings with the full paths they stand for.
+ */
+export function collectAliasPaths(schema: Schema): AliasPath[] {
+  const result: AliasPath[] = [];
+  const join = (prefix: string, name: string): string => (prefix ? `${prefix}.${name}` : name);
+
+  function walk(current: Schema, prefixes: AliasPath[], ancestors: Set<Schema>): void {
+    const aliases = schemaAliases(current);
+    for (const [alias, path] of Object.entries(aliases)) {
+      for (const prefix of prefixes) {
+        result.push({ alias: join(prefix.alias, alias), path: join(prefix.path, path) });
+      }
+    }
+
+    for (const child of current.childSchemas) {
+      const childPath: unknown = child.model?.path;
+      if (typeof childPath !== 'string' || ancestors.has(child.schema)) {
+        continue;
+      }
+
+      const names = [childPath, ...Object.keys(aliases).filter((alias) => aliases[alias] === childPath)];
+      const childPrefixes = prefixes.flatMap((prefix) =>
+        names.map((name) => ({ alias: join(prefix.alias, name), path: join(prefix.path, childPath) }))
+      );
+      walk(child.schema, childPrefixes, new Set([...ancestors, child.schema]));
+    }
+  }
+
+  walk(schema, [{ alias: '', path: '' }], new Set([schema]));
+  return result.filter(({ alias, path }) => alias !== path);
+}
+
+/**
+ * Build the masks to apply: the masks of the tracked fields, then explicit masks, which win on the same path.
+ * Array indexes and positional operators are dropped from every path, so a mask covers every element.
+ * Each mask is also registered under every alias spelling of its path, so raw input keyed by an alias,
+ * such as an `insertMany` document or a subdocument in an update, is masked too.
  * @param trackedFields - The tracked fields, whose `mask` options are collected by full path.
  * @param explicit - Masks keyed by full dotted path.
+ * @param aliasPaths - The schema's alias spellings, from `collectAliasPaths`.
  * @returns The merged masks, or undefined if there are none.
  */
-export function mergeMaskedFields(trackedFields: TrackedField[], explicit?: MaskedFields): MaskedFields | undefined {
-  const merged = { ...extractMaskedFields(trackedFields), ...explicit };
+export function mergeMaskedFields(
+  trackedFields: TrackedField[],
+  explicit?: MaskedFields,
+  aliasPaths: AliasPath[] = []
+): MaskedFields | undefined {
+  const byPath: MaskedFields = {};
+  for (const [path, mask] of Object.entries({ ...extractMaskedFields(trackedFields), ...explicit })) {
+    byPath[normalizeMaskPath(path)] = mask;
+  }
+
+  const merged: MaskedFields = { ...byPath };
+  for (const { alias, path } of aliasPaths) {
+    const mask = findMask(path, byPath);
+    if (mask !== undefined && !Object.prototype.hasOwnProperty.call(merged, alias)) {
+      merged[alias] = mask;
+    }
+
+    const prefix = `${path}.`;
+    for (const [key, nested] of Object.entries(byPath)) {
+      const aliasKey = `${alias}.${key.slice(prefix.length)}`;
+      if (key.startsWith(prefix) && !Object.prototype.hasOwnProperty.call(merged, aliasKey)) {
+        merged[aliasKey] = nested;
+      }
+    }
+  }
+
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 

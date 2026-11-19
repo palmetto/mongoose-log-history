@@ -28,7 +28,16 @@ import {
 import { getLogHistoryModel } from './schema';
 import { getTrackedChanges, extractLogContext } from './change-tracking';
 import { compressObject, decompressObject } from './compression';
-import { getValueByPath, arrayToKeyMap, isEqual, validatePluginOptions, deepClone, mergeMaskedFields } from './utils';
+import {
+  getValueByPath,
+  arrayToKeyMap,
+  isEqual,
+  validatePluginOptions,
+  deepClone,
+  mergeMaskedFields,
+  collectAliasPaths,
+  toPlainObject,
+} from './utils';
 import { saveLogHistories } from './saver';
 
 /**
@@ -176,7 +185,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * match what the update sets. `translateAliases` mutates its argument, so it gets a copy of the update and
  * of each operator object.
  */
-function translateUpdateAliases(model: Model<unknown>, update: unknown): Record<string, unknown> | null {
+function translateUpdateAliases(
+  model: Pick<Model<unknown>, 'translateAliases'>,
+  update: unknown
+): Record<string, unknown> | null {
   if (!isRecord(update)) {
     return null;
   }
@@ -212,7 +224,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   public readonly logHistorySaver: LogHistorySaver;
   private readonly allowAccessToLogHistory: boolean;
 
-  constructor(options: PluginOptions & { modelName: string }) {
+  constructor(options: PluginOptions & { modelName: string }, schema?: mongoose.Schema) {
     validatePluginOptions(options);
 
     this.modelName = options.modelName;
@@ -238,7 +250,11 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
-    this.maskedFields = mergeMaskedFields(this.trackedFields, options.maskedFields);
+    this.maskedFields = mergeMaskedFields(
+      this.trackedFields,
+      options.maskedFields,
+      schema ? collectAliasPaths(schema) : []
+    );
     this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
     this.allowAccessToLogHistory = !options.logHistorySaver;
   }
@@ -580,7 +596,10 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
       context = extractLogContext(
         this.contextFields,
         originalData as Record<string, unknown>,
-        updatedData as Record<string, unknown>
+        updatedData as Record<string, unknown>,
+        null,
+        null,
+        this.maskedFields
       );
     }
 
@@ -635,7 +654,10 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           context = extractLogContext(
             this.contextFields,
             params.originalData as Record<string, unknown>,
-            params.updatedData as Record<string, unknown>
+            params.updatedData as Record<string, unknown>,
+            null,
+            null,
+            this.maskedFields
           );
         }
 
@@ -895,7 +917,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
             modelId: modelId!,
             changeType: 'create',
             user,
-            updatedData: doc.toObject(),
+            updatedData: toPlainObject(doc),
           });
         } else {
           const originalDoc = (await (doc.constructor as Model<Document>)
@@ -921,7 +943,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
           await self.saveLogHistory({
             modelId: modelId!,
             originalData: originalDoc,
-            updatedData: doc.toObject(),
+            updatedData: toPlainObject(doc),
             changeType,
             user,
           });
@@ -970,7 +992,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
               logEntryParams.push({
                 modelId: modelId!,
                 changeType: 'create',
-                updatedData: doc.toObject ? doc.toObject() : doc,
+                updatedData: doc instanceof Document ? toPlainObject(doc) : doc,
                 user: userData,
               });
             }
@@ -1126,7 +1148,7 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
     throw new Error('Plugin option "modelName" is required');
   }
 
-  const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName });
+  const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName }, schema);
 
   if (options.logHistorySaver === undefined) {
     (schema.statics as Record<string, unknown>).getHistoriesById = async function (
