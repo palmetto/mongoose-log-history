@@ -1,4 +1,4 @@
-import { Document, Schema, Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ArrayDiff, Mask, MaskedFields, PluginOptions, TrackedField } from './types';
 
 /**
@@ -557,96 +557,16 @@ export function toPlainObject(doc: Document): Record<string, unknown> {
 }
 
 /**
- * Another spelling of a schema path that uses one or more aliases, such as `socialNumber` for `ssn`.
- */
-export interface AliasPath {
-  alias: string;
-  path: string;
-}
-
-function schemaAliases(schema: Schema): Record<string, string> {
-  const aliases: unknown = Reflect.get(schema, 'aliases');
-  const result: Record<string, string> = {};
-  if (isObject(aliases)) {
-    for (const [alias, path] of Object.entries(aliases)) {
-      if (typeof path === 'string') {
-        result[alias] = path;
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * List every spelling of a schema path that uses an alias, including aliases in subdocument schemas and
- * combinations of aliases at several levels.
- * @param schema - The schema the plugin is registered on.
- * @returns The alias spellings with the full paths they stand for.
- */
-export function collectAliasPaths(schema: Schema): AliasPath[] {
-  const result: AliasPath[] = [];
-  const join = (prefix: string, name: string): string => (prefix ? `${prefix}.${name}` : name);
-
-  function walk(current: Schema, prefixes: AliasPath[], ancestors: Set<Schema>): void {
-    const aliases = schemaAliases(current);
-    for (const [alias, path] of Object.entries(aliases)) {
-      for (const prefix of prefixes) {
-        result.push({ alias: join(prefix.alias, alias), path: join(prefix.path, path) });
-      }
-    }
-
-    for (const child of current.childSchemas) {
-      const childPath: unknown = child.model?.path;
-      if (typeof childPath !== 'string' || ancestors.has(child.schema)) {
-        continue;
-      }
-
-      const names = [childPath, ...Object.keys(aliases).filter((alias) => aliases[alias] === childPath)];
-      const childPrefixes = prefixes.flatMap((prefix) =>
-        names.map((name) => ({ alias: join(prefix.alias, name), path: join(prefix.path, childPath) }))
-      );
-      walk(child.schema, childPrefixes, new Set([...ancestors, child.schema]));
-    }
-  }
-
-  walk(schema, [{ alias: '', path: '' }], new Set([schema]));
-  return result.filter(({ alias, path }) => alias !== path);
-}
-
-/**
  * Build the masks to apply: the masks of the tracked fields, then explicit masks, which win on the same path.
  * Array indexes and positional operators are dropped from every path, so a mask covers every element.
- * Each mask is also registered under every alias spelling of its path, so raw input keyed by an alias,
- * such as an `insertMany` document or a subdocument in an update, is masked too.
  * @param trackedFields - The tracked fields, whose `mask` options are collected by full path.
  * @param explicit - Masks keyed by full dotted path.
- * @param aliasPaths - The schema's alias spellings, from `collectAliasPaths`.
  * @returns The merged masks, or undefined if there are none.
  */
-export function mergeMaskedFields(
-  trackedFields: TrackedField[],
-  explicit?: MaskedFields,
-  aliasPaths: AliasPath[] = []
-): MaskedFields | undefined {
-  const byPath: MaskedFields = {};
+export function mergeMaskedFields(trackedFields: TrackedField[], explicit?: MaskedFields): MaskedFields | undefined {
+  const merged: MaskedFields = {};
   for (const [path, mask] of Object.entries({ ...extractMaskedFields(trackedFields), ...explicit })) {
-    byPath[normalizeMaskPath(path)] = mask;
-  }
-
-  const merged: MaskedFields = { ...byPath };
-  for (const { alias, path } of aliasPaths) {
-    const mask = findMask(path, byPath);
-    if (mask !== undefined && !Object.prototype.hasOwnProperty.call(merged, alias)) {
-      merged[alias] = mask;
-    }
-
-    const prefix = `${path}.`;
-    for (const [key, nested] of Object.entries(byPath)) {
-      const aliasKey = `${alias}.${key.slice(prefix.length)}`;
-      if (key.startsWith(prefix) && !Object.prototype.hasOwnProperty.call(merged, aliasKey)) {
-        merged[aliasKey] = nested;
-      }
-    }
+    merged[normalizeMaskPath(path)] = mask;
   }
 
   return Object.keys(merged).length > 0 ? merged : undefined;

@@ -416,7 +416,9 @@ A mask on a path also covers every path under it. It applies everywhere a docume
 - The `from_value` and `to_value` of log entries. When a logged value is an object or array, masks on paths under it are applied before it is stringified, so a changed subdocument never logs a masked nested value in plaintext.
 - Values copied into a log entry's `context` by `contextFields`: the plugin-level option, and a tracked field's own, from the document or from an array item.
 
-A mask also covers every alias spelling of its path, such as `socialNumber` for `ssn`, using the aliases the schema defines when the plugin is registered. Snapshots hold stored fields only: virtuals, aliases, `toObject` transforms, and populated documents are left out, whatever the schema's `toObject` options are.
+Snapshots hold stored fields only: virtuals, aliases, `toObject` transforms, and populated documents are left out, whatever the schema's `toObject` options are.
+
+Mask paths are stored field paths. A value written through a schema alias, such as `$set: { socialNumber }` for `ssn`, is not masked, so write sensitive fields by their paths.
 
 ```js
 schema.plugin(changeLoggingPlugin, {

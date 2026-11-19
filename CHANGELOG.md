@@ -22,9 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Values copied into a log entry's `context` by `contextFields` now use the masks on their paths. Before, they were stored in plaintext.
 - `original_doc` and `updated_doc` now mask keys that an update sets by a dotted or positional path, such as `bank.account` or `cards.$.number`. Before, only a key that matched a mask path exactly was masked.
 - A document field named after an `Object.prototype` member, such as `toString`, is no longer treated as masked.
-- An update that sets a field through a schema alias now masks it. Before, `updated_doc` stored the value under the alias, which no mask path matched.
 - The document created by an upsert through `findOneAndUpdate` is now masked in `updated_doc`. Before, the hydrated Mongoose document was cloned field by field from its internals, so no mask path matched.
-- Masks now cover every alias spelling of their paths, so raw input keyed by an alias, such as an `insertMany` document or a subdocument set by an update, is masked.
 - Snapshots now hold stored fields only. Before, a schema's `toObject` options could add virtuals, aliases, or populated documents that no mask covered. Map fields are now stored with their entries instead of as `{}`.
 - The plugin-level `contextFields` on create and delete entries now use the masks.
 - The mask on a tracked field whose `value` has an array index now applies. A regression earlier in this release had dropped it from log entries.

@@ -35,7 +35,6 @@ import {
   validatePluginOptions,
   deepClone,
   mergeMaskedFields,
-  collectAliasPaths,
   toPlainObject,
 } from './utils';
 import { saveLogHistories } from './saver';
@@ -181,27 +180,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Rewrite schema aliases in an update to their paths, so masks and tracked fields, which are keyed by path,
- * match what the update sets. `translateAliases` mutates its argument, so it gets a copy of the update and
- * of each operator object.
- */
-function translateUpdateAliases(
-  model: Pick<Model<unknown>, 'translateAliases'>,
-  update: unknown
-): Record<string, unknown> | null {
-  if (!isRecord(update)) {
-    return null;
-  }
-
-  const copy: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(update)) {
-    copy[key] = key.startsWith('$') && isRecord(value) ? { ...value } : value;
-  }
-
-  return model.translateAliases(copy);
-}
-
-/**
  * Main plugin class that handles all change logging functionality.
  * This class encapsulates all the logic for tracking document changes
  * and provides a clean interface for the Mongoose plugin system.
@@ -224,7 +202,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
   public readonly logHistorySaver: LogHistorySaver;
   private readonly allowAccessToLogHistory: boolean;
 
-  constructor(options: PluginOptions & { modelName: string }, schema?: mongoose.Schema) {
+  constructor(options: PluginOptions & { modelName: string }) {
     validatePluginOptions(options);
 
     this.modelName = options.modelName;
@@ -250,11 +228,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
     this.userField = options.userField ?? 'created_by';
     this.compressDocs = options.compressDocs === true;
     this.selectTrackedFields = [...new Set(this.trackedFields.map((f) => f.value.split('.')[0]))].join(' ');
-    this.maskedFields = mergeMaskedFields(
-      this.trackedFields,
-      options.maskedFields,
-      schema ? collectAliasPaths(schema) : []
-    );
+    this.maskedFields = mergeMaskedFields(this.trackedFields, options.maskedFields);
     this.logHistorySaver = options.logHistorySaver ?? saveLogHistories;
     this.allowAccessToLogHistory = !options.logHistorySaver;
   }
@@ -755,7 +729,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         const query = this;
         const model = query.model;
         const filter = query.getFilter();
-        const update = translateUpdateAliases(model, query.getUpdate());
+        const update = query.getUpdate() as Record<string, unknown>;
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
@@ -1078,7 +1052,7 @@ export class ChangeLogPlugin implements LogHistoryPlugin {
         const query = this;
         const model = query.model as Model<Document>;
         const filter = query.getFilter();
-        const update = translateUpdateAliases(model, query.getUpdate());
+        const update = query.getUpdate() as Record<string, unknown>;
         const options = query.getOptions() ?? {};
         const context = (options as { context?: Record<string, unknown> }).context ?? {};
 
@@ -1148,7 +1122,7 @@ export function changeLoggingPlugin(schema: mongoose.Schema, options: PluginOpti
     throw new Error('Plugin option "modelName" is required');
   }
 
-  const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName }, schema);
+  const pluginInstance = new ChangeLogPlugin({ ...options, modelName: options.modelName });
 
   if (options.logHistorySaver === undefined) {
     (schema.statics as Record<string, unknown>).getHistoriesById = async function (

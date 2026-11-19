@@ -40,7 +40,7 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
       },
       cards: [{ _id: false, id: String, number: String, label: String }],
       bank: { account: String, routing: String },
-      ssn: { type: String, alias: 'socialNumber' },
+      ssn: String,
     });
 
     accountSchema.plugin(changeLoggingPlugin, {
@@ -155,18 +155,6 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
     expect(history).not.toBeNull();
     expectNoPlaintext(history, [OLD_ACCOUNT, NEW_ACCOUNT, OLD_CARD, NEW_CARD]);
-  });
-
-  it('masks a value set through a schema alias', async () => {
-    const account = await Account.create({ name: 'a' });
-    const update = { $set: { name: 'b', socialNumber: SSN } };
-    await Account.updateOne({ _id: account._id }, update);
-    await wait();
-
-    const history = await LogHistory.findOne({ model_id: account._id, change_type: 'update' }).lean();
-    expect(history.updated_doc.ssn).toBe('****');
-    expectNoPlaintext(history, [SSN]);
-    expect(update.$set).toEqual({ name: 'b', socialNumber: SSN });
   });
 
   it('masks the document created by an upsert through findOneAndUpdate', async () => {
@@ -285,7 +273,7 @@ describe('mongoose-log-history plugin - Sensitive Masking of schema-shaped input
     await LogHistory.deleteMany({});
   });
 
-  it('masks entry context, virtuals, aliases, and Map values on create and delete', async () => {
+  it('masks entry context and Map values, and leaves virtuals and aliases out of snapshots', async () => {
     const wallet = await Wallet.create({
       name: 'a',
       ssn: SSN,
@@ -317,22 +305,5 @@ describe('mongoose-log-history plugin - Sensitive Masking of schema-shaped input
       expect.objectContaining({ field_name: 'slots.0.number', from_value: '****', to_value: '****' }),
     ]);
     expectNoPlaintext(history, [OLD_CARD, NEW_CARD]);
-  });
-
-  it('masks alias keys in documents passed to insertMany', async () => {
-    await Wallet.insertMany([{ name: 'a', socialNumber: SSN, card: { cardNumber: NEW_CARD } }]);
-    await wait();
-
-    const created = await LogHistory.findOne({ change_type: 'create' }).lean();
-    expectNoPlaintext(created, [SSN, NEW_CARD]);
-  });
-
-  it('masks alias keys inside a subdocument set by an update', async () => {
-    const wallet = await Wallet.create({ name: 'a' });
-    await Wallet.updateOne({ _id: wallet._id }, { $set: { name: 'b', card: { cardNumber: NEW_CARD } } });
-    await wait();
-
-    const history = await LogHistory.findOne({ model_id: wallet._id, change_type: 'update' }).lean();
-    expectNoPlaintext(history, [NEW_CARD]);
   });
 });
