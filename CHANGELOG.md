@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `maskedFields` plugin option: masks keyed by full dotted path, merged with the masks of tracked fields. On the same path, `maskedFields` wins. Use it to mask fields that are not tracked, so they never reach `original_doc` and `updated_doc`. A key with an array index or positional operator, such as `cards.0.number`, throws when the plugin is registered.
+- `maskedFields` plugin option: masks keyed by full dotted path, merged with the masks of tracked fields. On the same path, `maskedFields` wins. Use it to mask fields that are not tracked, so they never reach `original_doc` and `updated_doc`.
 - Optional `maskedFields` argument to `getTrackedChanges`, merged with the masks of the tracked fields.
 - Optional `maskedFields` and `itemPath` arguments to `extractLogContext`, which mask the extracted context values.
 

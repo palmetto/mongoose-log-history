@@ -435,7 +435,7 @@ schema.plugin(changeLoggingPlugin, {
 });
 ```
 
-Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`. The mask on a tracked field whose `value` has an index, such as `items.0.secret`, also covers every element. A `maskedFields` key that contains an index or a positional operator, such as `items.0.secret`, throws when the plugin is registered.
+Array indexes are not part of a mask path: `items.secret` masks `secret` in every element of `items`. An index or positional operator in a mask path, such as `items.0.secret` on a tracked field or `items.$.secret` in `maskedFields`, is ignored, so the mask covers every element.
 
 ---
 

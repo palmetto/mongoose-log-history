@@ -211,20 +211,6 @@ describe('mongoose-log-history plugin - Sensitive Masking', () => {
     expect(() => {
       schema.plugin(changeLoggingPlugin, { modelName: 'Bad', trackedFields: [], maskedFields: { name: 1 } });
     }).toThrow(/maskedFields/);
-    expect(() => {
-      schema.plugin(changeLoggingPlugin, {
-        modelName: 'Bad',
-        trackedFields: [],
-        maskedFields: { 'cards.0.number': '*' },
-      });
-    }).toThrow(/without array indexes/);
-    expect(() => {
-      schema.plugin(changeLoggingPlugin, {
-        modelName: 'Bad',
-        trackedFields: [],
-        maskedFields: { 'cards.$.number': '*' },
-      });
-    }).toThrow(/without array indexes/);
   });
 });
 

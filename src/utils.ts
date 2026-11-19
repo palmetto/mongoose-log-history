@@ -416,12 +416,6 @@ export function validatePluginOptions(options: PluginOptions & { modelName: stri
       if (typeof mask !== 'string' && typeof mask !== 'function') {
         throw new Error(`[mongoose-log-history] "maskedFields.${path}" must be a string or a function.`);
       }
-
-      if (path.split('.').some((segment) => segment === '' || ARRAY_ELEMENT_SEGMENT.test(segment))) {
-        throw new Error(
-          `[mongoose-log-history] "maskedFields.${path}" must be a dotted field path without array indexes or positional operators.`
-        );
-      }
     }
   }
 }
@@ -470,7 +464,7 @@ function findMask(path: string, maskedFields?: MaskedFields): Mask | undefined {
  * A key is masked when its full path, or an ancestor of it, has a mask. Keys that hold a dotted path,
  * such as `card.number` or `cards.$.number` from an update, are matched the same way.
  * A masked key whose value is null or undefined keeps that value.
- * A Mongoose document is cloned from `toPlainObject()`, and a Map from its entries, so their paths match the schema's.
+ * A Mongoose document is cloned from `toPlainObject()`, so its paths match the schema's.
  * @param obj - The object to clone.
  * @param maskedFields - Optional mapping of field paths to masked values or functions.
  * @param parentPath - The parent path for the current object (used for masking).
@@ -491,10 +485,6 @@ export function deepClone<T>(obj: T, maskedFields?: MaskedFields, parentPath?: s
 
   if (obj instanceof Document) {
     return deepClone(toPlainObject(obj), maskedFields, parentPath) as T;
-  }
-
-  if (obj instanceof Map) {
-    return deepClone(Object.fromEntries(obj), maskedFields, parentPath) as T;
   }
 
   if (Array.isArray(obj)) {

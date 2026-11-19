@@ -225,9 +225,10 @@ describe('utils', () => {
         ],
         {
           ssn: 'explicit',
+          'cards.$.pin': 'explicit',
         }
       );
-      expect(masks).toEqual({ 'cards.cvc': 'tracked', ssn: 'explicit' });
+      expect(masks).toEqual({ 'cards.cvc': 'tracked', ssn: 'explicit', 'cards.pin': 'explicit' });
     });
 
     it('lets an explicit mask win over a tracked mask whose indexed path normalizes to the same path', () => {

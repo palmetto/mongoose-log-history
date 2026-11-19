@@ -171,7 +171,7 @@ export interface PluginOptions {
   compressDocs?: boolean;
 
   /**
-   * Masks keyed by full dotted field path without array indexes, applied to `original_doc`/`updated_doc`
+   * Masks keyed by full dotted field path (array indexes are ignored), applied to `original_doc`/`updated_doc`
    * snapshots, logged values, and `context`. Merged with the `mask` of each tracked field; on the same path,
    * this option wins. Use it to mask a field that is not tracked, so its value never reaches the snapshots.
    */
